@@ -212,6 +212,19 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Screen sharing events
+  socket.on('screen-share-started', (data) => {
+    const mediaRoomName = `media-${data.room}`;
+    socket.to(mediaRoomName).emit('screen-share-started', {
+      hasAudio: data.hasAudio
+    });
+  });
+
+  socket.on('screen-share-stopped', (data) => {
+    const mediaRoomName = `media-${data.room}`;
+    socket.to(mediaRoomName).emit('screen-share-stopped');
+  });
+
   // WebRTC handlers (existing)
   socket.on('offer', (data) => {
     socket.to(data.to).emit('offer', {
