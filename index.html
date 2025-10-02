@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Family Video Call & Media Sharing1</title>
+  <title>Family Video Call & Media Sharing</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -30,6 +30,9 @@
     .tab-button.active {
       background-color: #4B5563;
       border-color: #3B82F6;
+    }
+    .screen-share-active {
+      border: 3px solid #10B981;
     }
   </style>
 </head>
@@ -80,6 +83,12 @@
               </button>
               <button id="toggleAudioBtn" class="bg-gray-700 p-2 rounded-lg" disabled>
                 <i class="fas fa-microphone mr-1"></i> Audio
+              </button>
+              <button id="screenShareBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg" disabled>
+                <i class="fas fa-desktop mr-1"></i> Share Screen
+              </button>
+              <button id="stopScreenShareBtn" class="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg hidden">
+                <i class="fas fa-stop mr-1"></i> Stop Share
               </button>
               <button id="leaveBtn" class="bg-red-600 p-2 rounded-lg" disabled>
                 <i class="fas fa-phone-slash mr-1"></i> Leave
@@ -137,12 +146,41 @@
             </h3>
             
             <!-- Media Controls -->
-            <div class="flex flex-col md:flex-row gap-4 mb-4">
-              <input id="mediaUrl" placeholder="Enter YouTube URL or direct video URL" 
-                     class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
-              <button id="loadMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
-                <i class="fas fa-cloud-upload-alt mr-2"></i> Load Media
-              </button>
+            <div class="flex flex-col gap-4 mb-4">
+              <div class="flex flex-col md:flex-row gap-4">
+                <input id="mediaUrl" placeholder="Enter YouTube URL or video URL" 
+                       class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+                
+                <!-- Local file upload -->
+                <div class="flex-1">
+                  <input type="file" id="localFileInput" accept="video/*,audio/*" 
+                         class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg file:bg-blue-600 file:text-white file:border-0 file:p-2 file:rounded file:mr-4">
+                </div>
+                
+                <button id="loadMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
+                  <i class="fas fa-cloud-upload-alt mr-2"></i> Load Media
+                </button>
+              </div>
+              
+              <!-- Screen sharing for media -->
+              <div class="flex justify-center gap-4">
+                <button id="mediaScreenShareBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg">
+                  <i class="fas fa-desktop mr-2"></i> Share Screen + Audio
+                </button>
+                <button id="stopMediaScreenShareBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg hidden">
+                  <i class="fas fa-stop mr-2"></i> Stop Sharing
+                </button>
+              </div>
+              
+              <!-- Quality selector -->
+              <div class="flex items-center gap-2 justify-center">
+                <span class="text-sm">Quality:</span>
+                <select id="qualitySelect" class="bg-gray-700 text-white p-2 rounded">
+                  <option value="hd">HD (1080p)</option>
+                  <option value="medium" selected>Medium (720p)</option>
+                  <option value="low">Low (480p)</option>
+                </select>
+              </div>
             </div>
             
             <!-- Media Player -->
@@ -150,7 +188,7 @@
               <div id="mediaPlaceholder" class="flex flex-col items-center justify-center h-full text-gray-400">
                 <i class="fas fa-film text-5xl mb-4"></i>
                 <p>No media loaded</p>
-                <p class="text-sm mt-2">Load a YouTube URL or video file to start watching together</p>
+                <p class="text-sm mt-2">Load a YouTube URL, video file, or share your screen</p>
               </div>
               <div id="youtubePlayer" class="w-full h-full hidden"></div>
               <video id="videoPlayer" class="w-full h-full hidden" controls></video>
@@ -226,6 +264,8 @@ const displayNameInput = document.getElementById('displayName');
 const joinBtn = document.getElementById('joinBtn');
 const toggleVideoBtn = document.getElementById('toggleVideoBtn');
 const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+const screenShareBtn = document.getElementById('screenShareBtn');
+const stopScreenShareBtn = document.getElementById('stopScreenShareBtn');
 const leaveBtn = document.getElementById('leaveBtn');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
@@ -243,7 +283,11 @@ const mediaRoomNameInput = document.getElementById('mediaRoomName');
 const mediaDisplayNameInput = document.getElementById('mediaDisplayName');
 const joinMediaBtn = document.getElementById('joinMediaBtn');
 const mediaUrlInput = document.getElementById('mediaUrl');
+const localFileInput = document.getElementById('localFileInput');
 const loadMediaBtn = document.getElementById('loadMediaBtn');
+const mediaScreenShareBtn = document.getElementById('mediaScreenShareBtn');
+const stopMediaScreenShareBtn = document.getElementById('stopMediaScreenShareBtn');
+const qualitySelect = document.getElementById('qualitySelect');
 const mediaPlayerContainer = document.getElementById('mediaPlayerContainer');
 const mediaPlaceholder = document.getElementById('mediaPlaceholder');
 const youtubePlayer = document.getElementById('youtubePlayer');
@@ -259,8 +303,10 @@ const sendMediaChatBtn = document.getElementById('sendMediaChatBtn');
 
 // State variables
 let myStream = null;
+let screenStream = null;
 let isVideoOn = true;
 let isAudioOn = true;
+let isSharingScreen = false;
 let currentRoom = null;
 let myDisplayName = 'User';
 const peers = {};
@@ -275,7 +321,10 @@ let youtubePlayerInstance = null;
 let mediaParticipantsList = {};
 let mediaQueueList = [];
 let currentMedia = null;
+let currentMediaFile = null;
 let isPlaying = false;
+let isMediaScreenSharing = false;
+let mediaScreenStream = null;
 
 // Tab switching
 videoCallTab.addEventListener('click', () => {
@@ -319,7 +368,7 @@ async function initMedia() {
     addVideoStream(myStream, myDisplayName, 'local', socket.id);
     
     // Enable controls
-    [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => b.disabled = false);
+    [toggleVideoBtn, toggleAudioBtn, screenShareBtn, leaveBtn, chatInput, sendBtn].forEach(b => b.disabled = false);
     toggleVideoBtn.classList.add('bg-green-600');
     toggleAudioBtn.classList.add('bg-green-600');
     
@@ -412,6 +461,13 @@ function createPeerConnection(userId) {
     });
   }
 
+  // Add screen share track if active
+  if (screenStream) {
+    screenStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, screenStream);
+    });
+  }
+
   // Handle incoming tracks
   peerConnection.ontrack = (event) => {
     console.log(`📹 Received remote track from ${userId}`, event.streams);
@@ -422,7 +478,16 @@ function createPeerConnection(userId) {
       // Wait a bit for the stream to be ready
       setTimeout(() => {
         const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
-        addVideoStream(remoteStream, displayName, 'remote', userId);
+        
+        // Check if this is a screen share stream
+        const videoTrack = remoteStream.getVideoTracks()[0];
+        const isScreenShare = videoTrack && videoTrack.label.includes('screen');
+        
+        if (isScreenShare) {
+          addVideoStream(remoteStream, `${displayName} (Screen)`, 'remote', `${userId}-screen`);
+        } else {
+          addVideoStream(remoteStream, displayName, 'remote', userId);
+        }
       }, 100);
     }
   };
@@ -473,6 +538,75 @@ async function createAndSendOffer(userId) {
   }
 }
 
+// Screen sharing for video call
+async function startScreenShare() {
+  try {
+    const constraints = {
+      video: {
+        cursor: 'always',
+        displaySurface: 'browser'
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 44100
+      }
+    };
+
+    screenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+    
+    // Update UI
+    screenShareBtn.classList.add('hidden');
+    stopScreenShareBtn.classList.remove('hidden');
+    isSharingScreen = true;
+
+    // Add screen share to local video
+    addVideoStream(screenStream, `${myDisplayName} (Screen)`, 'local', 'local-screen');
+
+    // Replace tracks in all peer connections
+    Object.values(peers).forEach(peer => {
+      screenStream.getTracks().forEach(track => {
+        peer.addTrack(track, screenStream);
+      });
+    });
+
+    // Handle when user stops sharing via browser UI
+    screenStream.getVideoTracks()[0].onended = () => {
+      stopScreenShare();
+    };
+
+    console.log('Screen sharing started');
+
+  } catch (error) {
+    console.error('Error starting screen sharing:', error);
+    
+    if (error.name === 'NotAllowedError') {
+      alert('Screen sharing was denied. Please allow screen sharing to continue.');
+    } else if (error.name === 'NotFoundError') {
+      alert('No screen sharing source selected.');
+    } else {
+      alert('Error starting screen sharing: ' + error.message);
+    }
+  }
+}
+
+function stopScreenShare() {
+  if (screenStream) {
+    screenStream.getTracks().forEach(track => track.stop());
+    screenStream = null;
+  }
+
+  // Update UI
+  screenShareBtn.classList.remove('hidden');
+  stopScreenShareBtn.classList.add('hidden');
+  isSharingScreen = false;
+
+  // Remove screen share video
+  removeVideoStream('local-screen');
+
+  console.log('Screen sharing stopped');
+}
+
 // Join room
 joinBtn.addEventListener('click', async () => {
   const room = roomNameInput.value.trim().toLowerCase();
@@ -498,6 +632,11 @@ leaveBtn.addEventListener('click', () => {
     socket.emit('leave-room', currentRoom);
   }
   
+  // Stop screen sharing if active
+  if (isSharingScreen) {
+    stopScreenShare();
+  }
+  
   // Close all peer connections
   Object.values(peers).forEach(peer => peer.close());
   Object.keys(peers).forEach(key => delete peers[key]);
@@ -518,9 +657,9 @@ leaveBtn.addEventListener('click', () => {
   chatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
   
   // Disable controls
-  [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
+  [toggleVideoBtn, toggleAudioBtn, screenShareBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
     b.disabled = true;
-    if (b !== leaveBtn) {
+    if (b !== leaveBtn && b !== screenShareBtn) {
       b.classList.remove('bg-green-600');
       b.classList.add('bg-gray-700');
     }
@@ -613,6 +752,7 @@ socket.on('user-disconnected', (userId) => {
   }
   
   removeVideoStream(userId);
+  removeVideoStream(`${userId}-screen`);
   delete userDisplayNames[userId];
 });
 
@@ -708,6 +848,10 @@ toggleAudioBtn.addEventListener('click', () => {
   }
 });
 
+// Screen share event listeners
+screenShareBtn.addEventListener('click', startScreenShare);
+stopScreenShareBtn.addEventListener('click', stopScreenShare);
+
 // ========== MEDIA SHARING FUNCTIONALITY ==========
 
 // Load YouTube API
@@ -755,6 +899,21 @@ leaveMediaBtn.addEventListener('click', () => {
     socket.emit('leave-media-room', currentMediaRoom);
   }
   
+  // Stop screen sharing if active
+  if (isMediaScreenSharing) {
+    stopMediaScreenShare();
+  }
+  
+  // Clean up local file URLs
+  if (currentMedia && currentMedia.type === 'local') {
+    URL.revokeObjectURL(currentMedia.url);
+  }
+  mediaQueueList.forEach(media => {
+    if (media.type === 'local') {
+      URL.revokeObjectURL(media.url);
+    }
+  });
+  
   // Reset UI
   mediaPlaceholder.classList.remove('hidden');
   youtubePlayer.classList.add('hidden');
@@ -766,13 +925,14 @@ leaveMediaBtn.addEventListener('click', () => {
   }
   
   videoPlayer.src = '';
+  videoPlayer.srcObject = null;
   
   mediaQueue.innerHTML = '<div class="text-center text-gray-400 py-4">Queue is empty</div>';
   mediaParticipants.innerHTML = '<div class="text-center text-gray-400 py-4">No participants</div>';
   mediaChatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
   
   // Disable controls
-  [loadMediaBtn, playPauseBtn, syncBtn, leaveMediaBtn, mediaChatInput, sendMediaChatBtn].forEach(b => {
+  [loadMediaBtn, playPauseBtn, syncBtn, leaveMediaBtn, mediaChatInput, sendMediaChatBtn, mediaScreenShareBtn].forEach(b => {
     b.disabled = true;
   });
   
@@ -786,16 +946,90 @@ leaveMediaBtn.addEventListener('click', () => {
   mediaParticipantsList = {};
   mediaQueueList = [];
   currentMedia = null;
+  currentMediaFile = null;
+});
+
+// Handle local file selection
+localFileInput.addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    // Validate file type
+    if (!file.type.startsWith('video/') && !file.type.startsWith('audio/')) {
+      alert('Please select a video or audio file');
+      localFileInput.value = '';
+      return;
+    }
+    
+    // Check file size (limit to 500MB for example)
+    if (file.size > 500 * 1024 * 1024) {
+      alert('File too large. Please select a file smaller than 500MB.');
+      localFileInput.value = '';
+      return;
+    }
+    
+    currentMediaFile = file;
+    mediaUrlInput.value = ''; // Clear URL input
+    console.log('Selected file:', file.name, file.type, file.size);
+  }
 });
 
 // Load media
 loadMediaBtn.addEventListener('click', () => {
-  const url = mediaUrlInput.value.trim();
-  if (!url) {
-    alert('Please enter a media URL');
-    return;
+  // Stop screen sharing if active
+  if (isMediaScreenSharing) {
+    stopMediaScreenShare();
   }
   
+  // If local file is selected, use it
+  if (currentMediaFile) {
+    loadLocalFile(currentMediaFile);
+  } 
+  // Otherwise use URL
+  else {
+    const url = mediaUrlInput.value.trim();
+    if (!url) {
+      alert('Please enter a URL or select a local file');
+      return;
+    }
+    loadMediaFromUrl(url);
+  }
+});
+
+// Function to load local files
+function loadLocalFile(file) {
+  const fileURL = URL.createObjectURL(file);
+  
+  const mediaData = {
+    type: 'local',
+    url: fileURL,
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size
+  };
+  
+  loadDirectVideoMedia(fileURL, file.name);
+  
+  // If we're the host, broadcast to others
+  if (isMediaHost && currentMediaRoom) {
+    // For local files, we can't directly share the file with others
+    // So we'll notify them that host is playing a local file
+    socket.emit('media-load', {
+      room: currentMediaRoom,
+      media: {
+        type: 'local-notification',
+        fileName: file.name,
+        fileType: file.type
+      }
+    });
+    
+    // Add to queue
+    mediaQueueList.push(mediaData);
+    updateMediaQueue();
+  }
+}
+
+// Function to load from URL (separated from local files)
+function loadMediaFromUrl(url) {
   let mediaData = {};
   
   // Check if it's a YouTube URL
@@ -818,7 +1052,7 @@ loadMediaBtn.addEventListener('click', () => {
       url: url
     };
     
-    loadDirectVideo(url);
+    loadDirectVideoMedia(url);
   }
   
   // If we're the host, broadcast to others
@@ -832,7 +1066,7 @@ loadMediaBtn.addEventListener('click', () => {
     mediaQueueList.push(mediaData);
     updateMediaQueue();
   }
-});
+}
 
 // Load YouTube video
 function loadYouTubeVideo(videoId) {
@@ -863,17 +1097,45 @@ function loadYouTubeVideo(videoId) {
   syncBtn.disabled = !isMediaHost;
 }
 
-// Load direct video
-function loadDirectVideo(url) {
+// Load direct video for media sharing
+function loadDirectVideoMedia(url, fileName = 'Video') {
   mediaPlaceholder.classList.add('hidden');
   youtubePlayer.classList.add('hidden');
   videoPlayer.classList.remove('hidden');
   
   videoPlayer.src = url;
   videoPlayer.load();
+  videoPlayer.controls = true;
   
   playPauseBtn.disabled = false;
   syncBtn.disabled = !isMediaHost;
+  
+  // Add event listeners for better sync
+  videoPlayer.addEventListener('play', () => {
+    if (isMediaHost && currentMediaRoom) {
+      socket.emit('media-play', {
+        room: currentMediaRoom,
+        timestamp: videoPlayer.currentTime
+      });
+    }
+  });
+  
+  videoPlayer.addEventListener('pause', () => {
+    if (isMediaHost && currentMediaRoom) {
+      socket.emit('media-pause', {
+        room: currentMediaRoom
+      });
+    }
+  });
+  
+  videoPlayer.addEventListener('seeked', () => {
+    if (isMediaHost && currentMediaRoom) {
+      socket.emit('media-play', {
+        room: currentMediaRoom,
+        timestamp: videoPlayer.currentTime
+      });
+    }
+  });
 }
 
 // YouTube player ready
@@ -917,7 +1179,7 @@ playPauseBtn.addEventListener('click', () => {
     } else {
       youtubePlayerInstance.playVideo();
     }
-  } else if (currentMedia?.type === 'video') {
+  } else if (currentMedia?.type === 'video' || currentMedia?.type === 'local') {
     if (videoPlayer.paused) {
       videoPlayer.play();
       isPlaying = true;
@@ -954,6 +1216,127 @@ syncBtn.addEventListener('click', () => {
   }
 });
 
+// Screen sharing for media
+async function startMediaScreenShare() {
+  try {
+    const quality = qualitySelect.value;
+    const constraints = {
+      video: {
+        cursor: 'always',
+        displaySurface: 'browser'
+      },
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 44100
+      }
+    };
+
+    // Set quality based on selection
+    switch(quality) {
+      case 'hd':
+        constraints.video.width = { ideal: 1920 };
+        constraints.video.height = { ideal: 1080 };
+        constraints.video.frameRate = { ideal: 30 };
+        break;
+      case 'medium':
+        constraints.video.width = { ideal: 1280 };
+        constraints.video.height = { ideal: 720 };
+        constraints.video.frameRate = { ideal: 24 };
+        break;
+      case 'low':
+        constraints.video.width = { ideal: 854 };
+        constraints.video.height = { ideal: 480 };
+        constraints.video.frameRate = { ideal: 15 };
+        break;
+    }
+
+    mediaScreenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+    
+    // Check if audio was actually captured
+    const audioTracks = mediaScreenStream.getAudioTracks();
+    
+    // Update UI
+    mediaScreenShareBtn.classList.add('hidden');
+    stopMediaScreenShareBtn.classList.remove('hidden');
+    isMediaScreenSharing = true;
+
+    // Replace media player with screen share
+    mediaPlaceholder.classList.add('hidden');
+    youtubePlayer.classList.add('hidden');
+    videoPlayer.classList.remove('hidden');
+    
+    videoPlayer.srcObject = mediaScreenStream;
+    videoPlayer.muted = false; // Unmute to hear shared audio
+    videoPlayer.controls = false;
+
+    // Update play/pause button for screen sharing
+    playPauseBtn.disabled = true; // Screen sharing doesn't need play/pause
+
+    // Notify other participants
+    if (isMediaHost && currentMediaRoom) {
+      socket.emit('screen-share-started', {
+        room: currentMediaRoom,
+        hasAudio: audioTracks.length > 0
+      });
+    }
+
+    // Handle when user stops sharing via browser UI
+    mediaScreenStream.getVideoTracks()[0].onended = () => {
+      stopMediaScreenShare();
+    };
+
+    console.log('Media screen sharing started with audio:', audioTracks.length > 0);
+
+  } catch (error) {
+    console.error('Error starting media screen sharing:', error);
+    
+    if (error.name === 'NotAllowedError') {
+      alert('Screen sharing was denied. Please allow screen sharing to continue.');
+    } else if (error.name === 'NotFoundError') {
+      alert('No screen sharing source selected.');
+    } else {
+      alert('Error starting screen sharing: ' + error.message);
+    }
+  }
+}
+
+function stopMediaScreenShare() {
+  if (mediaScreenStream) {
+    mediaScreenStream.getTracks().forEach(track => track.stop());
+    mediaScreenStream = null;
+  }
+
+  // Update UI
+  mediaScreenShareBtn.classList.remove('hidden');
+  stopMediaScreenShareBtn.classList.add('hidden');
+  isMediaScreenSharing = false;
+
+  // Reset media player
+  videoPlayer.srcObject = null;
+  videoPlayer.controls = true;
+  playPauseBtn.disabled = false;
+
+  // Show placeholder or previous media
+  if (!currentMedia) {
+    mediaPlaceholder.classList.remove('hidden');
+    videoPlayer.classList.add('hidden');
+  }
+
+  // Notify other participants
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('screen-share-stopped', {
+      room: currentMediaRoom
+    });
+  }
+
+  console.log('Media screen sharing stopped');
+}
+
+// Media screen share event listeners
+mediaScreenShareBtn.addEventListener('click', startMediaScreenShare);
+stopMediaScreenShareBtn.addEventListener('click', stopMediaScreenShare);
+
 // Update media queue display
 function updateMediaQueue() {
   mediaQueue.innerHTML = '';
@@ -970,20 +1353,40 @@ function updateMediaQueue() {
     const mediaInfo = document.createElement('div');
     mediaInfo.className = 'flex items-center';
     
-    const icon = document.createElement('i');
-    icon.className = media.type === 'youtube' ? 'fab fa-youtube mr-2 text-red-500' : 'fas fa-film mr-2 text-blue-500';
+    let iconClass, title;
     
-    const title = document.createElement('span');
-    title.className = 'text-sm truncate';
-    title.textContent = media.type === 'youtube' ? `YouTube: ${media.id}` : media.url.split('/').pop();
+    if (media.type === 'youtube') {
+      iconClass = 'fab fa-youtube mr-2 text-red-500';
+      title = `YouTube: ${media.id}`;
+    } else if (media.type === 'local') {
+      iconClass = 'fas fa-file-video mr-2 text-green-500';
+      title = `Local: ${media.fileName}`;
+    } else {
+      iconClass = 'fas fa-film mr-2 text-blue-500';
+      title = media.url.split('/').pop();
+    }
+    
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'text-sm truncate';
+    titleSpan.textContent = title;
     
     mediaInfo.appendChild(icon);
-    mediaInfo.appendChild(title);
+    mediaInfo.appendChild(titleSpan);
     
     const controls = document.createElement('div');
     controls.className = 'flex gap-1';
     
     if (isMediaHost) {
+      const playBtn = document.createElement('button');
+      playBtn.className = 'text-xs bg-green-600 hover:bg-green-700 p-1 rounded';
+      playBtn.innerHTML = '<i class="fas fa-play"></i>';
+      playBtn.addEventListener('click', () => {
+        playFromQueue(index);
+      });
+      
       const removeBtn = document.createElement('button');
       removeBtn.className = 'text-xs bg-red-600 hover:bg-red-700 p-1 rounded';
       removeBtn.innerHTML = '<i class="fas fa-times"></i>';
@@ -996,6 +1399,7 @@ function updateMediaQueue() {
         });
       });
       
+      controls.appendChild(playBtn);
       controls.appendChild(removeBtn);
     }
     
@@ -1003,6 +1407,27 @@ function updateMediaQueue() {
     queueItem.appendChild(controls);
     mediaQueue.appendChild(queueItem);
   });
+}
+
+// Function to play media from queue
+function playFromQueue(index) {
+  const media = mediaQueueList[index];
+  
+  if (media.type === 'local') {
+    loadDirectVideoMedia(media.url, media.fileName);
+  } else if (media.type === 'youtube') {
+    loadYouTubeVideo(media.id);
+  } else {
+    loadDirectVideoMedia(media.url);
+  }
+  
+  // Notify other participants
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-load', {
+      room: currentMediaRoom,
+      media: media
+    });
+  }
 }
 
 // Update participants list
@@ -1091,8 +1516,30 @@ socket.on('media-room-joined', (data) => {
     
     if (currentMedia.type === 'youtube') {
       loadYouTubeVideo(currentMedia.id);
+    } else if (currentMedia.type === 'local-notification') {
+      // Show notification that host is playing a local file
+      mediaPlaceholder.classList.add('hidden');
+      youtubePlayer.classList.add('hidden');
+      videoPlayer.classList.remove('hidden');
+      
+      // Create a nice message for local files
+      videoPlayer.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-gray-400">
+          <i class="fas fa-file-video text-5xl mb-4"></i>
+          <p class="text-xl">Host is playing a local file</p>
+          <p class="text-sm mt-2">${currentMedia.fileName}</p>
+          <p class="text-xs mt-4">Ask the host to share their screen for best experience</p>
+        </div>
+      `;
+      videoPlayer.controls = false;
+      
+      // Disable controls for participants
+      if (!isMediaHost) {
+        playPauseBtn.disabled = true;
+        syncBtn.disabled = true;
+      }
     } else {
-      loadDirectVideo(currentMedia.url);
+      loadDirectVideoMedia(currentMedia.url);
     }
     
     // If we're not the host, disable media controls
@@ -1105,6 +1552,7 @@ socket.on('media-room-joined', (data) => {
   // Enable chat
   mediaChatInput.disabled = false;
   sendMediaChatBtn.disabled = false;
+  mediaScreenShareBtn.disabled = false;
 });
 
 socket.on('media-user-joined', (data) => {
@@ -1135,8 +1583,30 @@ socket.on('media-load', (data) => {
   
   if (currentMedia.type === 'youtube') {
     loadYouTubeVideo(currentMedia.id);
+  } else if (currentMedia.type === 'local-notification') {
+    // Show notification that host is playing a local file
+    mediaPlaceholder.classList.add('hidden');
+    youtubePlayer.classList.add('hidden');
+    videoPlayer.classList.remove('hidden');
+    
+    // Create a nice message for local files
+    videoPlayer.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full text-gray-400">
+        <i class="fas fa-file-video text-5xl mb-4"></i>
+        <p class="text-xl">Host is playing a local file</p>
+        <p class="text-sm mt-2">${currentMedia.fileName}</p>
+        <p class="text-xs mt-4">Ask the host to share their screen for best experience</p>
+      </div>
+    `;
+    videoPlayer.controls = false;
+    
+    // Disable controls for participants
+    if (!isMediaHost) {
+      playPauseBtn.disabled = true;
+      syncBtn.disabled = true;
+    }
   } else {
-    loadDirectVideo(currentMedia.url);
+    loadDirectVideoMedia(currentMedia.url);
   }
   
   // If we're not the host, disable media controls
@@ -1152,7 +1622,7 @@ socket.on('media-play', (data) => {
   if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
     youtubePlayerInstance.seekTo(data.timestamp, true);
     youtubePlayerInstance.playVideo();
-  } else if (currentMedia?.type === 'video') {
+  } else if (currentMedia?.type === 'video' || currentMedia?.type === 'local') {
     videoPlayer.currentTime = data.timestamp;
     videoPlayer.play();
     isPlaying = true;
@@ -1165,7 +1635,7 @@ socket.on('media-pause', () => {
   
   if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
     youtubePlayerInstance.pauseVideo();
-  } else if (currentMedia?.type === 'video') {
+  } else if (currentMedia?.type === 'video' || currentMedia?.type === 'local') {
     videoPlayer.pause();
     isPlaying = false;
     playPauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
@@ -1182,7 +1652,7 @@ socket.on('media-sync-response', (data) => {
     } else {
       youtubePlayerInstance.pauseVideo();
     }
-  } else if (currentMedia?.type === 'video') {
+  } else if (currentMedia?.type === 'video' || currentMedia?.type === 'local') {
     videoPlayer.currentTime = data.timestamp;
     if (data.isPlaying) {
       videoPlayer.play();
@@ -1204,6 +1674,20 @@ socket.on('media-queue-update', (data) => {
 
 socket.on('media-chat-message', (data) => {
   addMediaChatMessage(data.userName || `User ${data.userId.substring(0, 6)}`, data.message, 'incoming');
+});
+
+socket.on('screen-share-started', (data) => {
+  console.log('Host started screen sharing');
+  if (!isMediaHost) {
+    addMediaChatMessage('System', 'Host started screen sharing', 'incoming');
+  }
+});
+
+socket.on('screen-share-stopped', (data) => {
+  console.log('Host stopped screen sharing');
+  if (!isMediaHost) {
+    addMediaChatMessage('System', 'Host stopped screen sharing', 'incoming');
+  }
 });
 
 // Socket connection events
