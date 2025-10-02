@@ -157,14 +157,14 @@
                          class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg file:bg-blue-600 file:text-white file:border-0 file:p-2 file:rounded file:mr-4">
                 </div>
                 
-                <button id="loadMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
+                <button id="loadMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg" disabled>
                   <i class="fas fa-cloud-upload-alt mr-2"></i> Load Media
                 </button>
               </div>
               
               <!-- Screen sharing for media -->
               <div class="flex justify-center gap-4">
-                <button id="mediaScreenShareBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg">
+                <button id="mediaScreenShareBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg" disabled>
                   <i class="fas fa-desktop mr-2"></i> Share Screen + Audio
                 </button>
                 <button id="stopMediaScreenShareBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg hidden">
@@ -461,13 +461,6 @@ function createPeerConnection(userId) {
     });
   }
 
-  // Add screen share track if active
-  if (screenStream) {
-    screenStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, screenStream);
-    });
-  }
-
   // Handle incoming tracks
   peerConnection.ontrack = (event) => {
     console.log(`📹 Received remote track from ${userId}`, event.streams);
@@ -565,9 +558,24 @@ async function startScreenShare() {
 
     // Replace tracks in all peer connections
     Object.values(peers).forEach(peer => {
-      screenStream.getTracks().forEach(track => {
-        peer.addTrack(track, screenStream);
-      });
+      const senders = peer.getSenders();
+      
+      // Replace video track with screen share
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+      if (videoSender && screenStream.getVideoTracks().length > 0) {
+        videoSender.replaceTrack(screenStream.getVideoTracks()[0]);
+      }
+      
+      // Add audio track if available
+      if (screenStream.getAudioTracks().length > 0) {
+        const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+        if (audioSender) {
+          audioSender.replaceTrack(screenStream.getAudioTracks()[0]);
+        } else {
+          // Add new audio track if none exists
+          peer.addTrack(screenStream.getAudioTracks()[0], screenStream);
+        }
+      }
     });
 
     // Handle when user stops sharing via browser UI
@@ -603,6 +611,25 @@ function stopScreenShare() {
 
   // Remove screen share video
   removeVideoStream('local-screen');
+
+  // Restore camera tracks in all peer connections
+  if (myStream) {
+    Object.values(peers).forEach(peer => {
+      const senders = peer.getSenders();
+      
+      // Restore video track
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+      if (videoSender && myStream.getVideoTracks().length > 0) {
+        videoSender.replaceTrack(myStream.getVideoTracks()[0]);
+      }
+      
+      // Restore audio track
+      const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+      if (audioSender && myStream.getAudioTracks().length > 0) {
+        audioSender.replaceTrack(myStream.getAudioTracks()[0]);
+      }
+    });
+  }
 
   console.log('Screen sharing stopped');
 }
@@ -886,8 +913,6 @@ joinMediaBtn.addEventListener('click', () => {
   joinMediaBtn.disabled = true;
   mediaRoomNameInput.disabled = true;
   mediaDisplayNameInput.disabled = true;
-  loadMediaBtn.disabled = false;
-  leaveMediaBtn.disabled = false;
   
   // Load YouTube API if needed
   loadYouTubeAPI();
@@ -1008,11 +1033,11 @@ function loadLocalFile(file) {
   };
   
   loadDirectVideoMedia(fileURL, file.name);
+  currentMedia = mediaData;
   
   // If we're the host, broadcast to others
   if (isMediaHost && currentMediaRoom) {
-    // For local files, we can't directly share the file with others
-    // So we'll notify them that host is playing a local file
+    // For local files, notify others that host is playing a local file
     socket.emit('media-load', {
       room: currentMediaRoom,
       media: {
@@ -1054,6 +1079,8 @@ function loadMediaFromUrl(url) {
     
     loadDirectVideoMedia(url);
   }
+  
+  currentMedia = mediaData;
   
   // If we're the host, broadcast to others
   if (isMediaHost) {
@@ -1321,6 +1348,15 @@ function stopMediaScreenShare() {
   if (!currentMedia) {
     mediaPlaceholder.classList.remove('hidden');
     videoPlayer.classList.add('hidden');
+  } else {
+    // Reload the current media
+    if (currentMedia.type === 'youtube') {
+      loadYouTubeVideo(currentMedia.id);
+    } else if (currentMedia.type === 'local') {
+      loadDirectVideoMedia(currentMedia.url, currentMedia.fileName);
+    } else {
+      loadDirectVideoMedia(currentMedia.url);
+    }
   }
 
   // Notify other participants
@@ -1421,6 +1457,8 @@ function playFromQueue(index) {
     loadDirectVideoMedia(media.url);
   }
   
+  currentMedia = media;
+  
   // Notify other participants
   if (isMediaHost && currentMediaRoom) {
     socket.emit('media-load', {
@@ -1510,6 +1548,10 @@ socket.on('media-room-joined', (data) => {
   updateMediaParticipants();
   updateMediaQueue();
   
+  // Enable appropriate controls based on host status
+  loadMediaBtn.disabled = !isMediaHost;
+  mediaScreenShareBtn.disabled = false;
+  
   // If there's current media, load it
   if (data.currentMedia) {
     currentMedia = data.currentMedia;
@@ -1518,26 +1560,7 @@ socket.on('media-room-joined', (data) => {
       loadYouTubeVideo(currentMedia.id);
     } else if (currentMedia.type === 'local-notification') {
       // Show notification that host is playing a local file
-      mediaPlaceholder.classList.add('hidden');
-      youtubePlayer.classList.add('hidden');
-      videoPlayer.classList.remove('hidden');
-      
-      // Create a nice message for local files
-      videoPlayer.innerHTML = `
-        <div class="flex flex-col items-center justify-center h-full text-gray-400">
-          <i class="fas fa-file-video text-5xl mb-4"></i>
-          <p class="text-xl">Host is playing a local file</p>
-          <p class="text-sm mt-2">${currentMedia.fileName}</p>
-          <p class="text-xs mt-4">Ask the host to share their screen for best experience</p>
-        </div>
-      `;
-      videoPlayer.controls = false;
-      
-      // Disable controls for participants
-      if (!isMediaHost) {
-        playPauseBtn.disabled = true;
-        syncBtn.disabled = true;
-      }
+      showLocalFileNotification(currentMedia);
     } else {
       loadDirectVideoMedia(currentMedia.url);
     }
@@ -1552,8 +1575,30 @@ socket.on('media-room-joined', (data) => {
   // Enable chat
   mediaChatInput.disabled = false;
   sendMediaChatBtn.disabled = false;
-  mediaScreenShareBtn.disabled = false;
 });
+
+function showLocalFileNotification(media) {
+  mediaPlaceholder.classList.add('hidden');
+  youtubePlayer.classList.add('hidden');
+  videoPlayer.classList.remove('hidden');
+  
+  // Create a nice message for local files
+  videoPlayer.innerHTML = `
+    <div class="flex flex-col items-center justify-center h-full text-gray-400">
+      <i class="fas fa-file-video text-5xl mb-4"></i>
+      <p class="text-xl">Host is playing a local file</p>
+      <p class="text-sm mt-2">${media.fileName}</p>
+      <p class="text-xs mt-4">Ask the host to share their screen for best experience</p>
+    </div>
+  `;
+  videoPlayer.controls = false;
+  
+  // Disable controls for participants
+  if (!isMediaHost) {
+    playPauseBtn.disabled = true;
+    syncBtn.disabled = true;
+  }
+}
 
 socket.on('media-user-joined', (data) => {
   console.log('User joined media room:', data);
@@ -1585,26 +1630,7 @@ socket.on('media-load', (data) => {
     loadYouTubeVideo(currentMedia.id);
   } else if (currentMedia.type === 'local-notification') {
     // Show notification that host is playing a local file
-    mediaPlaceholder.classList.add('hidden');
-    youtubePlayer.classList.add('hidden');
-    videoPlayer.classList.remove('hidden');
-    
-    // Create a nice message for local files
-    videoPlayer.innerHTML = `
-      <div class="flex flex-col items-center justify-center h-full text-gray-400">
-        <i class="fas fa-file-video text-5xl mb-4"></i>
-        <p class="text-xl">Host is playing a local file</p>
-        <p class="text-sm mt-2">${currentMedia.fileName}</p>
-        <p class="text-xs mt-4">Ask the host to share their screen for best experience</p>
-      </div>
-    `;
-    videoPlayer.controls = false;
-    
-    // Disable controls for participants
-    if (!isMediaHost) {
-      playPauseBtn.disabled = true;
-      syncBtn.disabled = true;
-    }
+    showLocalFileNotification(currentMedia);
   } else {
     loadDirectVideoMedia(currentMedia.url);
   }
@@ -1693,7 +1719,7 @@ socket.on('screen-share-stopped', (data) => {
 // Socket connection events
 socket.on('connect', () => {
   console.log('✅ Connected to server');
-  updateConnectionStatus('connected');
+  // Don't update status to connected here - wait for room join
 });
 
 socket.on('disconnect', () => {
@@ -1719,7 +1745,7 @@ setInterval(() => {
   }
 }, 15000);
 
-// Initialize
+// Initialize - start with disconnected status
 updateConnectionStatus('disconnected');
 </script>
 </body>
