@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Family Video Call & Media Sharing</title>
+  <title>Family Video Call & Media Sharing1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1221,6 +1221,19 @@ socket.on('connect_error', (error) => {
   console.error('❌ Connection error:', error);
   updateConnectionStatus('disconnected');
 });
+
+// Debug info
+setInterval(() => {
+  if (Object.keys(peers).length > 0) {
+    console.log('--- Active Peer Connections ---');
+    Object.entries(peers).forEach(([id, peer]) => {
+      console.log(`Peer ${id}:`, {
+        connectionState: peer.connectionState,
+        iceConnectionState: peer.iceConnectionState
+      });
+    });
+  }
+}, 15000);
 
 // Initialize
 updateConnectionStatus('disconnected');
