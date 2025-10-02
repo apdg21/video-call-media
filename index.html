@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Family Video Call & Media Sharing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .video-container { aspect-ratio: 16/9; }
+    .pulse-connecting { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%{opacity:1;} 50%{opacity:.5;} 100%{opacity:1;} }
+    .status-connected { background-color:#10B981 !important; }
+    .status-connecting { background-color:#F59E0B !important; }
+    .status-disconnected { background-color:#EF4444 !important; }
+    video {
+      background: #000;
+      transform: scaleX(-1); /* Mirror effect for front camera */
+    }
+    .remote-video {
+      transform: scaleX(1); /* Don't mirror remote videos */
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .tab-button.active {
+      background-color: #4B5563;
+      border-color: #3B82F6;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <!-- Header -->
+  <header class="bg-gray-800 p-4 shadow-md flex justify-between">
+    <h1 class="text-2xl font-bold flex items-center">
+      <i class="fas fa-users mr-2 text-blue-400"></i> Family Video Call & Media Sharing
+    </h1>
+    <div id="connectionStatus" class="flex items-center">
+      <span class="h-3 w-3 rounded-full status-disconnected mr-2"></span>
+      <span>Disconnected</span>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="bg-gray-800 border-b border-gray-700">
+    <div class="container mx-auto flex">
+      <button id="videoCallTab" class="tab-button active px-6 py-3 border-b-2 border-blue-500 font-medium">
+        <i class="fas fa-video mr-2"></i>Video Call
+      </button>
+      <button id="mediaSharingTab" class="tab-button px-6 py-3 border-b-2 border-transparent font-medium">
+        <i class="fas fa-film mr-2"></i>Media Sharing
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="container mx-auto p-4">
+    <!-- Video Call Tab Content -->
+    <div id="videoCallContent" class="tab-content active">
+      <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Video -->
+        <div class="lg:w-3/4">
+          <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
+            <div class="flex flex-col md:flex-row gap-4">
+              <input id="roomName" placeholder="Room name" value="family-room"
+                     class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+              <input id="displayName" placeholder="Your name" value="User"
+                     class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+              <button id="joinBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg">
+                <i class="fas fa-video mr-2"></i> Join
+              </button>
+            </div>
+            <div class="mt-4 flex gap-2 flex-wrap">
+              <button id="toggleVideoBtn" class="bg-gray-700 p-2 rounded-lg" disabled>
+                <i class="fas fa-video mr-1"></i> Video
+              </button>
+              <button id="toggleAudioBtn" class="bg-gray-700 p-2 rounded-lg" disabled>
+                <i class="fas fa-microphone mr-1"></i> Audio
+              </button>
+              <button id="leaveBtn" class="bg-red-600 p-2 rounded-lg" disabled>
+                <i class="fas fa-phone-slash mr-1"></i> Leave
+              </button>
+            </div>
+          </div>
+          <div id="videoGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="text-center text-gray-500 py-8 col-span-2">
+              <i class="fas fa-video text-4xl mb-4"></i>
+              <p>Join a room to start video calling</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="lg:w-1/4 bg-gray-800 rounded-lg shadow-lg flex flex-col h-[600px]">
+          <div class="p-4 border-b border-gray-700 flex items-center">
+            <i class="fas fa-comments mr-2 text-blue-400"></i><h2>Chat</h2>
+          </div>
+          <div id="chatMessages" class="flex-1 p-4 overflow-y-auto">
+            <div class="text-center text-gray-400 py-4">No messages yet.</div>
+          </div>
+          <div class="p-4 border-t border-gray-700 flex">
+            <input id="chatInput" placeholder="Type..." disabled
+                   class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-l-lg">
+            <button id="sendBtn" disabled
+                    class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media Sharing Tab Content -->
+    <div id="mediaSharingContent" class="tab-content">
+      <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
+        <div class="flex flex-col md:flex-row gap-4">
+          <input id="mediaRoomName" placeholder="Room name" value="family-room"
+                 class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+          <input id="mediaDisplayName" placeholder="Your name" value="User"
+                 class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+          <button id="joinMediaBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg">
+            <i class="fas fa-film mr-2"></i> Join Media Room
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col lg:flex-row gap-6">
+        <!-- Media Player Section -->
+        <div class="lg:w-3/4">
+          <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+              <i class="fas fa-play-circle mr-2 text-blue-400"></i> Shared Media Player
+            </h3>
+            
+            <!-- Media Controls -->
+            <div class="flex flex-col md:flex-row gap-4 mb-4">
+              <input id="mediaUrl" placeholder="Enter YouTube URL or direct video URL" 
+                     class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg">
+              <button id="loadMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
+                <i class="fas fa-cloud-upload-alt mr-2"></i> Load Media
+              </button>
+            </div>
+            
+            <!-- Media Player -->
+            <div id="mediaPlayerContainer" class="bg-black rounded-lg overflow-hidden aspect-video mb-4">
+              <div id="mediaPlaceholder" class="flex flex-col items-center justify-center h-full text-gray-400">
+                <i class="fas fa-film text-5xl mb-4"></i>
+                <p>No media loaded</p>
+                <p class="text-sm mt-2">Load a YouTube URL or video file to start watching together</p>
+              </div>
+              <div id="youtubePlayer" class="w-full h-full hidden"></div>
+              <video id="videoPlayer" class="w-full h-full hidden" controls></video>
+            </div>
+            
+            <!-- Media Controls -->
+            <div class="flex justify-center gap-4">
+              <button id="playPauseBtn" class="bg-gray-700 p-3 rounded-lg" disabled>
+                <i class="fas fa-play"></i> Play
+              </button>
+              <button id="syncBtn" class="bg-blue-600 p-3 rounded-lg" disabled>
+                <i class="fas fa-sync-alt"></i> Sync with Host
+              </button>
+              <button id="leaveMediaBtn" class="bg-red-600 p-3 rounded-lg" disabled>
+                <i class="fas fa-sign-out-alt"></i> Leave
+              </button>
+            </div>
+          </div>
+          
+          <!-- Media Queue -->
+          <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+              <i class="fas fa-list-ol mr-2 text-blue-400"></i> Media Queue
+            </h3>
+            <div id="mediaQueue" class="space-y-2 max-h-60 overflow-y-auto">
+              <div class="text-center text-gray-400 py-4">Queue is empty</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media Chat & Participants -->
+        <div class="lg:w-1/4">
+          <!-- Participants -->
+          <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
+            <h3 class="text-xl font-bold mb-4 flex items-center">
+              <i class="fas fa-users mr-2 text-blue-400"></i> Participants
+            </h3>
+            <div id="mediaParticipants" class="space-y-2">
+              <div class="text-center text-gray-400 py-4">No participants</div>
+            </div>
+          </div>
+          
+          <!-- Media Chat -->
+          <div class="bg-gray-800 rounded-lg shadow-lg flex flex-col h-[400px]">
+            <div class="p-4 border-b border-gray-700 flex items-center">
+              <i class="fas fa-comments mr-2 text-blue-400"></i><h2>Media Chat</h2>
+            </div>
+            <div id="mediaChatMessages" class="flex-1 p-4 overflow-y-auto">
+              <div class="text-center text-gray-400 py-4">No messages yet.</div>
+            </div>
+            <div class="p-4 border-t border-gray-700 flex">
+              <input id="mediaChatInput" placeholder="Type..." disabled
+                     class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-l-lg">
+              <button id="sendMediaChatBtn" disabled
+                      class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+<script>
+// Use relative path for socket.io - it will automatically connect to the same server
+const socket = io();
+
+// DOM Elements
+const videoGrid = document.getElementById('videoGrid');
+const roomNameInput = document.getElementById('roomName');
+const displayNameInput = document.getElementById('displayName');
+const joinBtn = document.getElementById('joinBtn');
+const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+const leaveBtn = document.getElementById('leaveBtn');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const connectionStatus = document.getElementById('connectionStatus');
+
+// Tab elements
+const videoCallTab = document.getElementById('videoCallTab');
+const mediaSharingTab = document.getElementById('mediaSharingTab');
+const videoCallContent = document.getElementById('videoCallContent');
+const mediaSharingContent = document.getElementById('mediaSharingContent');
+
+// Media sharing elements
+const mediaRoomNameInput = document.getElementById('mediaRoomName');
+const mediaDisplayNameInput = document.getElementById('mediaDisplayName');
+const joinMediaBtn = document.getElementById('joinMediaBtn');
+const mediaUrlInput = document.getElementById('mediaUrl');
+const loadMediaBtn = document.getElementById('loadMediaBtn');
+const mediaPlayerContainer = document.getElementById('mediaPlayerContainer');
+const mediaPlaceholder = document.getElementById('mediaPlaceholder');
+const youtubePlayer = document.getElementById('youtubePlayer');
+const videoPlayer = document.getElementById('videoPlayer');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const syncBtn = document.getElementById('syncBtn');
+const leaveMediaBtn = document.getElementById('leaveMediaBtn');
+const mediaQueue = document.getElementById('mediaQueue');
+const mediaParticipants = document.getElementById('mediaParticipants');
+const mediaChatMessages = document.getElementById('mediaChatMessages');
+const mediaChatInput = document.getElementById('mediaChatInput');
+const sendMediaChatBtn = document.getElementById('sendMediaChatBtn');
+
+// State variables
+let myStream = null;
+let isVideoOn = true;
+let isAudioOn = true;
+let currentRoom = null;
+let myDisplayName = 'User';
+const peers = {};
+const userDisplayNames = {};
+
+// Media sharing state variables
+let currentMediaRoom = null;
+let mediaDisplayName = 'User';
+let isMediaHost = false;
+let youtubeAPIReady = false;
+let youtubePlayerInstance = null;
+let mediaParticipantsList = {};
+let mediaQueueList = [];
+let currentMedia = null;
+let isPlaying = false;
+
+// Tab switching
+videoCallTab.addEventListener('click', () => {
+  videoCallTab.classList.add('active');
+  mediaSharingTab.classList.remove('active');
+  videoCallContent.classList.add('active');
+  mediaSharingContent.classList.remove('active');
+});
+
+mediaSharingTab.addEventListener('click', () => {
+  mediaSharingTab.classList.add('active');
+  videoCallTab.classList.remove('active');
+  mediaSharingContent.classList.add('active');
+  videoCallContent.classList.remove('active');
+});
+
+// Update connection status
+function updateConnectionStatus(status) {
+  const indicator = connectionStatus.querySelector('.h-3');
+  const text = connectionStatus.querySelector('span:last-child');
+  indicator.className = 'h-3 w-3 rounded-full mr-2 ' +
+    (status === 'connected' ? 'status-connected' : 
+     status === 'connecting' ? 'status-connecting pulse-connecting' : 'status-disconnected');
+  text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// Initialize media
+async function initMedia() {
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        width: { ideal: 1280 },
+        height: { ideal: 720 } 
+      }, 
+      audio: true 
+    });
+    
+    myDisplayName = displayNameInput.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
+    userDisplayNames[socket.id] = myDisplayName;
+    
+    addVideoStream(myStream, myDisplayName, 'local', socket.id);
+    
+    // Enable controls
+    [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => b.disabled = false);
+    toggleVideoBtn.classList.add('bg-green-600');
+    toggleAudioBtn.classList.add('bg-green-600');
+    
+    return true;
+  } catch (err) {
+    console.error('Media error', err);
+    alert('Could not access camera/microphone. Please check permissions.');
+    return false;
+  }
+}
+
+// Add video stream to grid
+function addVideoStream(stream, userName, type, userId) {
+  const idKey = type === 'local' ? 'local' : userId;
+  
+  // Remove existing video if any
+  removeVideoStream(idKey);
+  
+  const container = document.createElement('div');
+  container.className = 'relative bg-black rounded-lg overflow-hidden video-container';
+  container.id = `video-${idKey}`;
+  
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = (type === 'local');
+  
+  if (type === 'local') {
+    video.style.transform = 'scaleX(-1)'; // Mirror for self-view
+  } else {
+    video.classList.add('remote-video');
+  }
+  
+  video.className = 'w-full h-full object-cover';
+  
+  video.onloadedmetadata = () => {
+    console.log(`✅ Video metadata loaded for ${userName}`);
+    video.play().catch(err => console.error('Play failed:', err));
+  };
+  
+  const label = document.createElement('div');
+  label.className = 'absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm';
+  label.textContent = userName + (type === 'local' ? ' (You)' : '');
+  
+  // Add status indicator
+  const status = document.createElement('div');
+  status.className = 'absolute top-2 right-2 flex gap-1';
+  status.innerHTML = `
+    <span class="h-3 w-3 rounded-full ${type === 'local' ? (isVideoOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
+    <span class="h-3 w-3 rounded-full ${type === 'local' ? (isAudioOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
+  `;
+  
+  container.appendChild(video);
+  container.appendChild(label);
+  container.appendChild(status);
+  videoGrid.appendChild(container);
+  
+  // Remove placeholder if it exists
+  const placeholder = videoGrid.querySelector('.text-center');
+  if (placeholder) placeholder.remove();
+  
+  console.log(`✅ Added ${type} video stream for ${userName}`);
+}
+
+// Remove video stream
+function removeVideoStream(idKey) {
+  const el = document.getElementById(`video-${idKey}`);
+  if (el) el.remove();
+}
+
+// Create peer connection
+function createPeerConnection(userId) {
+  console.log(`🔗 Creating peer connection for ${userId}`);
+  
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
+    ]
+  });
+
+  // Add local tracks to the connection
+  if (myStream) {
+    myStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, myStream);
+    });
+  }
+
+  // Handle incoming tracks
+  peerConnection.ontrack = (event) => {
+    console.log(`📹 Received remote track from ${userId}`, event.streams);
+    
+    if (event.streams && event.streams[0]) {
+      const remoteStream = event.streams[0];
+      
+      // Wait a bit for the stream to be ready
+      setTimeout(() => {
+        const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
+        addVideoStream(remoteStream, displayName, 'remote', userId);
+      }, 100);
+    }
+  };
+
+  // ICE candidate handling
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate && currentRoom) {
+      socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        to: userId,
+        room: currentRoom
+      });
+    }
+  };
+
+  // Connection state monitoring
+  peerConnection.onconnectionstatechange = () => {
+    console.log(`🔗 Peer ${userId} connection state:`, peerConnection.connectionState);
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log(`❄️ Peer ${userId} ICE state:`, peerConnection.iceConnectionState);
+  };
+
+  return peerConnection;
+}
+
+// Create and send offer
+async function createAndSendOffer(userId) {
+  try {
+    console.log(`📤 Creating offer for ${userId}`);
+    
+    const peerConnection = createPeerConnection(userId);
+    peers[userId] = peerConnection;
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    socket.emit('offer', {
+      offer: offer,
+      to: userId,
+      room: currentRoom
+    });
+
+    console.log(`✅ Offer sent to ${userId}`);
+  } catch (error) {
+    console.error('Error creating offer:', error);
+  }
+}
+
+// Join room
+joinBtn.addEventListener('click', async () => {
+  const room = roomNameInput.value.trim().toLowerCase();
+  if (!room) {
+    alert('Please enter a room name');
+    return;
+  }
+  
+  if (!await initMedia()) return;
+  
+  currentRoom = room;
+  updateConnectionStatus('connecting');
+  socket.emit('join-room', room, myDisplayName);
+  
+  joinBtn.disabled = true;
+  roomNameInput.disabled = true;
+  displayNameInput.disabled = true;
+});
+
+// Leave call
+leaveBtn.addEventListener('click', () => {
+  if (currentRoom) {
+    socket.emit('leave-room', currentRoom);
+  }
+  
+  // Close all peer connections
+  Object.values(peers).forEach(peer => peer.close());
+  Object.keys(peers).forEach(key => delete peers[key]);
+  
+  // Stop local stream
+  if (myStream) {
+    myStream.getTracks().forEach(track => track.stop());
+  }
+  
+  // Reset UI
+  videoGrid.innerHTML = `
+    <div class="text-center text-gray-500 py-8 col-span-2">
+      <i class="fas fa-video text-4xl mb-4"></i>
+      <p>Join a room to start video calling</p>
+    </div>
+  `;
+  
+  chatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
+  
+  // Disable controls
+  [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
+    b.disabled = true;
+    if (b !== leaveBtn) {
+      b.classList.remove('bg-green-600');
+      b.classList.add('bg-gray-700');
+    }
+  });
+  
+  // Enable join controls
+  joinBtn.disabled = false;
+  roomNameInput.disabled = false;
+  displayNameInput.disabled = false;
+  
+  updateConnectionStatus('disconnected');
+  currentRoom = null;
+});
+
+// Socket event handlers
+socket.on('room-joined', (users) => {
+  console.log('👥 Room joined, existing users:', users);
+  updateConnectionStatus('connected');
+  
+  // Create offers for all existing users
+  users.forEach(user => {
+    if (user.id !== socket.id) {
+      userDisplayNames[user.id] = user.displayName;
+      createAndSendOffer(user.id);
+    }
+  });
+});
+
+socket.on('user-connected', (userData) => {
+  console.log('👋 New user joined:', userData);
+  userDisplayNames[userData.id] = userData.displayName;
+  createAndSendOffer(userData.id);
+});
+
+socket.on('offer', async (data) => {
+  console.log('📨 Received offer from', data.from);
+  
+  try {
+    const peerConnection = createPeerConnection(data.from);
+    peers[data.from] = peerConnection;
+    
+    await peerConnection.setRemoteDescription(data.offer);
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('answer', {
+      answer: answer,
+      to: data.from,
+      room: currentRoom
+    });
+    
+    console.log('📤 Sent answer to', data.from);
+  } catch (error) {
+    console.error('Error handling offer:', error);
+  }
+});
+
+socket.on('answer', async (data) => {
+  console.log('📨 Received answer from', data.from);
+  
+  try {
+    if (peers[data.from]) {
+      await peers[data.from].setRemoteDescription(data.answer);
+      console.log('✅ Set remote description for', data.from);
+    }
+  } catch (error) {
+    console.error('Error handling answer:', error);
+  }
+});
+
+socket.on('ice-candidate', async (data) => {
+  console.log('❄️ Received ICE candidate from', data.from);
+  
+  try {
+    if (peers[data.from] && data.candidate) {
+      await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+      console.log('✅ Added ICE candidate for', data.from);
+    }
+  } catch (error) {
+    console.error('Error adding ICE candidate:', error);
+  }
+});
+
+socket.on('user-disconnected', (userId) => {
+  console.log('❌ User disconnected:', userId);
+  
+  if (peers[userId]) {
+    peers[userId].close();
+    delete peers[userId];
+  }
+  
+  removeVideoStream(userId);
+  delete userDisplayNames[userId];
+});
+
+// Chat functionality
+function sendMessage() {
+  const message = chatInput.value.trim();
+  if (!message || !currentRoom) return;
+  
+  addChatMessage(myDisplayName, message, 'outgoing');
+  socket.emit('chat-message', {
+    room: currentRoom,
+    message: message,
+    userName: myDisplayName
+  });
+  
+  chatInput.value = '';
+}
+
+function addChatMessage(user, message, type = 'incoming') {
+  const messageElement = document.createElement('div');
+  messageElement.className = `mb-3 ${type === 'outgoing' ? 'text-right' : ''}`;
+  
+  messageElement.innerHTML = `
+    <div class="inline-block p-3 rounded-lg max-w-xs ${
+      type === 'outgoing' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
+    }">
+      <div class="text-xs font-semibold mb-1 ${
+        type === 'outgoing' ? 'text-blue-200' : 'text-gray-400'
+      }">${user}</div>
+      <div class="text-sm">${message}</div>
+    </div>
+  `;
+  
+  // Remove placeholder if it exists
+  const placeholder = chatMessages.querySelector('.text-center');
+  if (placeholder) placeholder.remove();
+  
+  chatMessages.appendChild(messageElement);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendMessage();
+});
+
+socket.on('chat-message', (data) => {
+  addChatMessage(data.userName || `User ${data.userId.substring(0, 6)}`, data.message, 'incoming');
+});
+
+// Media control handlers
+toggleVideoBtn.addEventListener('click', () => {
+  if (!myStream) return;
+  
+  const videoTrack = myStream.getVideoTracks()[0];
+  if (videoTrack) {
+    isVideoOn = !isVideoOn;
+    videoTrack.enabled = isVideoOn;
+    
+    toggleVideoBtn.classList.toggle('bg-green-600', isVideoOn);
+    toggleVideoBtn.classList.toggle('bg-gray-700', !isVideoOn);
+    
+    // Update local video status indicator
+    const localVideo = document.getElementById('video-local');
+    if (localVideo) {
+      const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:first-child');
+      if (statusIndicator) {
+        statusIndicator.className = `h-3 w-3 rounded-full ${isVideoOn ? 'bg-green-500' : 'bg-red-500'}`;
+      }
+    }
+  }
+});
+
+toggleAudioBtn.addEventListener('click', () => {
+  if (!myStream) return;
+  
+  const audioTrack = myStream.getAudioTracks()[0];
+  if (audioTrack) {
+    isAudioOn = !isAudioOn;
+    audioTrack.enabled = isAudioOn;
+    
+    toggleAudioBtn.classList.toggle('bg-green-600', isAudioOn);
+    toggleAudioBtn.classList.toggle('bg-gray-700', !isAudioOn);
+    
+    // Update local audio status indicator
+    const localVideo = document.getElementById('video-local');
+    if (localVideo) {
+      const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:last-child');
+      if (statusIndicator) {
+        statusIndicator.className = `h-3 w-3 rounded-full ${isAudioOn ? 'bg-green-500' : 'bg-red-500'}`;
+      }
+    }
+  }
+});
+
+// ========== MEDIA SHARING FUNCTIONALITY ==========
+
+// Load YouTube API
+function loadYouTubeAPI() {
+  if (!window.YT) {
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  }
+}
+
+// YouTube API ready callback
+window.onYouTubeIframeAPIReady = function() {
+  youtubeAPIReady = true;
+  console.log('YouTube API ready');
+};
+
+// Join media room
+joinMediaBtn.addEventListener('click', () => {
+  const room = mediaRoomNameInput.value.trim().toLowerCase();
+  if (!room) {
+    alert('Please enter a room name');
+    return;
+  }
+  
+  mediaDisplayName = mediaDisplayNameInput.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
+  currentMediaRoom = room;
+  
+  socket.emit('join-media-room', room, mediaDisplayName);
+  
+  joinMediaBtn.disabled = true;
+  mediaRoomNameInput.disabled = true;
+  mediaDisplayNameInput.disabled = true;
+  loadMediaBtn.disabled = false;
+  leaveMediaBtn.disabled = false;
+  
+  // Load YouTube API if needed
+  loadYouTubeAPI();
+});
+
+// Leave media room
+leaveMediaBtn.addEventListener('click', () => {
+  if (currentMediaRoom) {
+    socket.emit('leave-media-room', currentMediaRoom);
+  }
+  
+  // Reset UI
+  mediaPlaceholder.classList.remove('hidden');
+  youtubePlayer.classList.add('hidden');
+  videoPlayer.classList.add('hidden');
+  
+  if (youtubePlayerInstance) {
+    youtubePlayerInstance.destroy();
+    youtubePlayerInstance = null;
+  }
+  
+  videoPlayer.src = '';
+  
+  mediaQueue.innerHTML = '<div class="text-center text-gray-400 py-4">Queue is empty</div>';
+  mediaParticipants.innerHTML = '<div class="text-center text-gray-400 py-4">No participants</div>';
+  mediaChatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
+  
+  // Disable controls
+  [loadMediaBtn, playPauseBtn, syncBtn, leaveMediaBtn, mediaChatInput, sendMediaChatBtn].forEach(b => {
+    b.disabled = true;
+  });
+  
+  // Enable join controls
+  joinMediaBtn.disabled = false;
+  mediaRoomNameInput.disabled = false;
+  mediaDisplayNameInput.disabled = false;
+  
+  currentMediaRoom = null;
+  isMediaHost = false;
+  mediaParticipantsList = {};
+  mediaQueueList = [];
+  currentMedia = null;
+});
+
+// Load media
+loadMediaBtn.addEventListener('click', () => {
+  const url = mediaUrlInput.value.trim();
+  if (!url) {
+    alert('Please enter a media URL');
+    return;
+  }
+  
+  let mediaData = {};
+  
+  // Check if it's a YouTube URL
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const youtubeMatch = url.match(youtubeRegex);
+  
+  if (youtubeMatch) {
+    const videoId = youtubeMatch[4];
+    mediaData = {
+      type: 'youtube',
+      id: videoId,
+      url: url
+    };
+    
+    loadYouTubeVideo(videoId);
+  } else {
+    // Assume it's a direct video URL
+    mediaData = {
+      type: 'video',
+      url: url
+    };
+    
+    loadDirectVideo(url);
+  }
+  
+  // If we're the host, broadcast to others
+  if (isMediaHost) {
+    socket.emit('media-load', {
+      room: currentMediaRoom,
+      media: mediaData
+    });
+    
+    // Add to queue
+    mediaQueueList.push(mediaData);
+    updateMediaQueue();
+  }
+});
+
+// Load YouTube video
+function loadYouTubeVideo(videoId) {
+  mediaPlaceholder.classList.add('hidden');
+  youtubePlayer.classList.remove('hidden');
+  videoPlayer.classList.add('hidden');
+  
+  if (youtubePlayerInstance) {
+    youtubePlayerInstance.destroy();
+  }
+  
+  youtubePlayerInstance = new YT.Player('youtubePlayer', {
+    height: '100%',
+    width: '100%',
+    videoId: videoId,
+    playerVars: {
+      'playsinline': 1,
+      'enablejsapi': 1,
+      'origin': window.location.origin
+    },
+    events: {
+      'onReady': onYouTubePlayerReady,
+      'onStateChange': onYouTubePlayerStateChange
+    }
+  });
+  
+  playPauseBtn.disabled = false;
+  syncBtn.disabled = !isMediaHost;
+}
+
+// Load direct video
+function loadDirectVideo(url) {
+  mediaPlaceholder.classList.add('hidden');
+  youtubePlayer.classList.add('hidden');
+  videoPlayer.classList.remove('hidden');
+  
+  videoPlayer.src = url;
+  videoPlayer.load();
+  
+  playPauseBtn.disabled = false;
+  syncBtn.disabled = !isMediaHost;
+}
+
+// YouTube player ready
+function onYouTubePlayerReady(event) {
+  console.log('YouTube player ready');
+  playPauseBtn.disabled = false;
+  syncBtn.disabled = !isMediaHost;
+}
+
+// YouTube player state change
+function onYouTubePlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING) {
+    isPlaying = true;
+    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+    
+    // If we're the host, broadcast play state
+    if (isMediaHost) {
+      socket.emit('media-play', {
+        room: currentMediaRoom,
+        timestamp: youtubePlayerInstance.getCurrentTime()
+      });
+    }
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    isPlaying = false;
+    playPauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+    
+    // If we're the host, broadcast pause state
+    if (isMediaHost) {
+      socket.emit('media-pause', {
+        room: currentMediaRoom
+      });
+    }
+  }
+}
+
+// Play/pause media
+playPauseBtn.addEventListener('click', () => {
+  if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
+    if (isPlaying) {
+      youtubePlayerInstance.pauseVideo();
+    } else {
+      youtubePlayerInstance.playVideo();
+    }
+  } else if (currentMedia?.type === 'video') {
+    if (videoPlayer.paused) {
+      videoPlayer.play();
+      isPlaying = true;
+      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+      
+      // If we're the host, broadcast play state
+      if (isMediaHost) {
+        socket.emit('media-play', {
+          room: currentMediaRoom,
+          timestamp: videoPlayer.currentTime
+        });
+      }
+    } else {
+      videoPlayer.pause();
+      isPlaying = false;
+      playPauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+      
+      // If we're the host, broadcast pause state
+      if (isMediaHost) {
+        socket.emit('media-pause', {
+          room: currentMediaRoom
+        });
+      }
+    }
+  }
+});
+
+// Sync with host
+syncBtn.addEventListener('click', () => {
+  if (!isMediaHost) {
+    socket.emit('media-sync-request', {
+      room: currentMediaRoom
+    });
+  }
+});
+
+// Update media queue display
+function updateMediaQueue() {
+  mediaQueue.innerHTML = '';
+  
+  if (mediaQueueList.length === 0) {
+    mediaQueue.innerHTML = '<div class="text-center text-gray-400 py-4">Queue is empty</div>';
+    return;
+  }
+  
+  mediaQueueList.forEach((media, index) => {
+    const queueItem = document.createElement('div');
+    queueItem.className = 'flex items-center justify-between p-2 bg-gray-700 rounded';
+    
+    const mediaInfo = document.createElement('div');
+    mediaInfo.className = 'flex items-center';
+    
+    const icon = document.createElement('i');
+    icon.className = media.type === 'youtube' ? 'fab fa-youtube mr-2 text-red-500' : 'fas fa-film mr-2 text-blue-500';
+    
+    const title = document.createElement('span');
+    title.className = 'text-sm truncate';
+    title.textContent = media.type === 'youtube' ? `YouTube: ${media.id}` : media.url.split('/').pop();
+    
+    mediaInfo.appendChild(icon);
+    mediaInfo.appendChild(title);
+    
+    const controls = document.createElement('div');
+    controls.className = 'flex gap-1';
+    
+    if (isMediaHost) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'text-xs bg-red-600 hover:bg-red-700 p-1 rounded';
+      removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+      removeBtn.addEventListener('click', () => {
+        mediaQueueList.splice(index, 1);
+        updateMediaQueue();
+        socket.emit('media-queue-update', {
+          room: currentMediaRoom,
+          queue: mediaQueueList
+        });
+      });
+      
+      controls.appendChild(removeBtn);
+    }
+    
+    queueItem.appendChild(mediaInfo);
+    queueItem.appendChild(controls);
+    mediaQueue.appendChild(queueItem);
+  });
+}
+
+// Update participants list
+function updateMediaParticipants() {
+  mediaParticipants.innerHTML = '';
+  
+  if (Object.keys(mediaParticipantsList).length === 0) {
+    mediaParticipants.innerHTML = '<div class="text-center text-gray-400 py-4">No participants</div>';
+    return;
+  }
+  
+  Object.values(mediaParticipantsList).forEach(participant => {
+    const participantEl = document.createElement('div');
+    participantEl.className = 'flex items-center justify-between p-2 bg-gray-700 rounded';
+    
+    const nameEl = document.createElement('span');
+    nameEl.textContent = participant.name;
+    
+    const roleEl = document.createElement('span');
+    roleEl.className = 'text-xs px-2 py-1 rounded-full ' + 
+      (participant.isHost ? 'bg-yellow-600 text-white' : 'bg-gray-600 text-gray-300');
+    roleEl.textContent = participant.isHost ? 'Host' : 'Viewer';
+    
+    participantEl.appendChild(nameEl);
+    participantEl.appendChild(roleEl);
+    mediaParticipants.appendChild(participantEl);
+  });
+}
+
+// Send media chat message
+function sendMediaChatMessage() {
+  const message = mediaChatInput.value.trim();
+  if (!message || !currentMediaRoom) return;
+  
+  addMediaChatMessage(mediaDisplayName, message, 'outgoing');
+  socket.emit('media-chat-message', {
+    room: currentMediaRoom,
+    message: message,
+    userName: mediaDisplayName
+  });
+  
+  mediaChatInput.value = '';
+}
+
+function addMediaChatMessage(user, message, type = 'incoming') {
+  const messageElement = document.createElement('div');
+  messageElement.className = `mb-3 ${type === 'outgoing' ? 'text-right' : ''}`;
+  
+  messageElement.innerHTML = `
+    <div class="inline-block p-3 rounded-lg max-w-xs ${
+      type === 'outgoing' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
+    }">
+      <div class="text-xs font-semibold mb-1 ${
+        type === 'outgoing' ? 'text-blue-200' : 'text-gray-400'
+      }">${user}</div>
+      <div class="text-sm">${message}</div>
+    </div>
+  `;
+  
+  // Remove placeholder if it exists
+  const placeholder = mediaChatMessages.querySelector('.text-center');
+  if (placeholder) placeholder.remove();
+  
+  mediaChatMessages.appendChild(messageElement);
+  mediaChatMessages.scrollTop = mediaChatMessages.scrollHeight;
+}
+
+sendMediaChatBtn.addEventListener('click', sendMediaChatMessage);
+mediaChatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendMediaChatMessage();
+});
+
+// Media sharing socket event handlers
+socket.on('media-room-joined', (data) => {
+  console.log('Joined media room:', data);
+  isMediaHost = data.isHost;
+  mediaParticipantsList = data.participants;
+  mediaQueueList = data.queue || [];
+  
+  updateMediaParticipants();
+  updateMediaQueue();
+  
+  // If there's current media, load it
+  if (data.currentMedia) {
+    currentMedia = data.currentMedia;
+    
+    if (currentMedia.type === 'youtube') {
+      loadYouTubeVideo(currentMedia.id);
+    } else {
+      loadDirectVideo(currentMedia.url);
+    }
+    
+    // If we're not the host, disable media controls
+    if (!isMediaHost) {
+      loadMediaBtn.disabled = true;
+      syncBtn.disabled = false;
+    }
+  }
+  
+  // Enable chat
+  mediaChatInput.disabled = false;
+  sendMediaChatBtn.disabled = false;
+});
+
+socket.on('media-user-joined', (data) => {
+  console.log('User joined media room:', data);
+  mediaParticipantsList[data.userId] = data.user;
+  updateMediaParticipants();
+});
+
+socket.on('media-user-left', (data) => {
+  console.log('User left media room:', data);
+  delete mediaParticipantsList[data.userId];
+  updateMediaParticipants();
+  
+  // If the host left, elect a new host
+  if (data.wasHost) {
+    // The server should handle host reassignment, but we'll check if we're now the host
+    if (mediaParticipantsList[socket.id]) {
+      isMediaHost = mediaParticipantsList[socket.id].isHost;
+      syncBtn.disabled = !isMediaHost;
+      loadMediaBtn.disabled = !isMediaHost;
+    }
+  }
+});
+
+socket.on('media-load', (data) => {
+  console.log('Media loaded by host:', data);
+  currentMedia = data.media;
+  
+  if (currentMedia.type === 'youtube') {
+    loadYouTubeVideo(currentMedia.id);
+  } else {
+    loadDirectVideo(currentMedia.url);
+  }
+  
+  // If we're not the host, disable media controls
+  if (!isMediaHost) {
+    loadMediaBtn.disabled = true;
+    syncBtn.disabled = false;
+  }
+});
+
+socket.on('media-play', (data) => {
+  console.log('Media play command:', data);
+  
+  if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
+    youtubePlayerInstance.seekTo(data.timestamp, true);
+    youtubePlayerInstance.playVideo();
+  } else if (currentMedia?.type === 'video') {
+    videoPlayer.currentTime = data.timestamp;
+    videoPlayer.play();
+    isPlaying = true;
+    playPauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+  }
+});
+
+socket.on('media-pause', () => {
+  console.log('Media pause command');
+  
+  if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
+    youtubePlayerInstance.pauseVideo();
+  } else if (currentMedia?.type === 'video') {
+    videoPlayer.pause();
+    isPlaying = false;
+    playPauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+  }
+});
+
+socket.on('media-sync-response', (data) => {
+  console.log('Sync response from host:', data);
+  
+  if (currentMedia?.type === 'youtube' && youtubePlayerInstance) {
+    youtubePlayerInstance.seekTo(data.timestamp, true);
+    if (data.isPlaying) {
+      youtubePlayerInstance.playVideo();
+    } else {
+      youtubePlayerInstance.pauseVideo();
+    }
+  } else if (currentMedia?.type === 'video') {
+    videoPlayer.currentTime = data.timestamp;
+    if (data.isPlaying) {
+      videoPlayer.play();
+      isPlaying = true;
+      playPauseBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+    } else {
+      videoPlayer.pause();
+      isPlaying = false;
+      playPauseBtn.innerHTML = '<i class="fas fa-play"></i> Play';
+    }
+  }
+});
+
+socket.on('media-queue-update', (data) => {
+  console.log('Media queue updated:', data);
+  mediaQueueList = data.queue;
+  updateMediaQueue();
+});
+
+socket.on('media-chat-message', (data) => {
+  addMediaChatMessage(data.userName || `User ${data.userId.substring(0, 6)}`, data.message, 'incoming');
+});
+
+// Socket connection events
+socket.on('connect', () => {
+  console.log('✅ Connected to server');
+  updateConnectionStatus('connected');
+});
+
+socket.on('disconnect', () => {
+  console.log('❌ Disconnected from server');
+  updateConnectionStatus('disconnected');
+});
+
+socket.on('connect_error', (error) => {
+  console.error('❌ Connection error:', error);
+  updateConnectionStatus('disconnected');
+});
+
+// Initialize
+updateConnectionStatus('disconnected');
+</script>
+</body>
+</html>
