@@ -87,7 +87,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
 // Use relative path for socket.io
-const socket = io();
+const socket = io(window.location.origin);  // Ensures connection to current host (e.g., https://video-call-media.onrender.com)
 
 // DOM Elements
 const videoGrid = document.getElementById('videoGrid');
