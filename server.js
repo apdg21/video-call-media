@@ -5,7 +5,9 @@ const server = http.createServer(app);
 const { Server } = require('socket.io');
 
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: { origin: "*", methods: ["GET", "POST"] },
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 app.use(express.static(__dirname));
@@ -22,7 +24,10 @@ io.on('connection', (socket) => {
     try {
       console.log(`🎯 ${socket.id} joining room ${roomName} as ${displayName}`);
       for (const r of socket.rooms) {
-        if (r !== socket.id) socket.leave(r);
+        if (r !== socket.id) {
+          socket.leave(r);
+          console.log(`Left previous room: ${r}`);
+        }
       }
       socket.join(roomName);
       if (!rooms.has(roomName)) rooms.set(roomName, new Map());
@@ -31,7 +36,7 @@ io.on('connection', (socket) => {
         id: socket.id,
         displayName: displayName || `User${socket.id.substring(0, 6)}`
       });
-      console.log(`📊 Room ${roomName} has ${room.size} users`);
+      console.log(`📊 Room ${roomName} has ${room.size} users:`, Array.from(room.keys()));
       const otherUsers = Array.from(room.values()).filter(user => user.id !== socket.id);
       socket.emit('room-joined', otherUsers);
       socket.to(roomName).emit('user-connected', {
@@ -45,9 +50,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('offer', (data) => {
-    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+    console.log(`📨 Offer from ${socket.id} to ${data.to} for room ${data.room}`);
+    if (!data.room || !rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid offer: room ${data.room} or user ${data.to} not found`);
-      socket.emit('error', { message: `Cannot send offer: user ${data.to} not found in room ${data.room}` });
+      socket.emit('error', { message: `Cannot send offer: user ${data.to} not found in room ${data.room || 'null'}` });
       return;
     }
     socket.to(data.to).emit('offer', {
@@ -58,9 +64,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('answer', (data) => {
-    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+    console.log(`📨 Answer from ${socket.id} to ${data.to} for room ${data.room}`);
+    if (!data.room || !rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid answer: room ${data.room} or user ${data.to} not found`);
-      socket.emit('error', { message: `Cannot send answer: user ${data.to} not found in room ${data.room}` });
+      socket.emit('error', { message: `Cannot send answer: user ${data.to} not found in room ${data.room || 'null'}` });
       return;
     }
     socket.to(data.to).emit('answer', {
@@ -71,9 +78,10 @@ io.on('connection', (socket) => {
   });
 
   socket.on('ice-candidate', (data) => {
-    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+    console.log(`❄️ ICE candidate from ${socket.id} to ${data.to} for room ${data.room}`);
+    if (!data.room || !rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid ICE candidate: room ${data.room} or user ${data.to} not found`);
-      socket.emit('error', { message: `Cannot send ICE candidate: user ${data.to} not found in room ${data.room}` });
+      socket.emit('error', { message: `Cannot send ICE candidate: user ${data.to} not found in room ${data.room || 'null'}` });
       return;
     }
     socket.to(data.to).emit('ice-candidate', {
@@ -84,7 +92,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat-message', (data) => {
-    if (!rooms.has(data.room)) return;
+    if (!data.room || !rooms.has(data.room)) return;
     socket.to(data.room).emit('chat-message', {
       message: data.message,
       userId: socket.id,
@@ -93,7 +101,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('user-media-update', (data) => {
-    if (!rooms.has(data.room)) return;
+    if (!data.room || !rooms.has(data.room)) return;
     socket.to(data.room).emit('user-media-update', {
       userId: socket.id,
       video: data.video,
