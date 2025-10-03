@@ -224,10 +224,7 @@ function createPeerConnection(userId) {
       { urls: 'stun:stun.voipbuster.com:3478' },
       { urls: 'stun:stun.voipstunt.com:3478' }
     ],
-    iceTransportPolicy: 'all',
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
-  });
+    });
 
   // Add local tracks to the connection
   if (myStream) {
