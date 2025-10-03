@@ -86,8 +86,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
-// Use explicit server URL for Render
-const socket = io('https://video-call-media.onrender.com');
+// Use relative path for socket.io
+const socket = io(window.location.origin);  // Ensures connection to current host (e.g., https://video-call-media.onrender.com)
 
 // DOM Elements
 const videoGrid = document.getElementById('videoGrid');
@@ -153,47 +153,53 @@ async function initMedia() {
 function addVideoStream(stream, userName, type, userId) {
   const idKey = type === 'local' ? 'local' : userId;
   removeVideoStream(idKey);
+  
   const container = document.createElement('div');
   container.className = 'relative bg-black rounded-lg overflow-hidden video-container';
   container.style.display = 'block';
   container.id = `video-${idKey}`;
+  
   const video = document.createElement('video');
   video.srcObject = stream;
   video.autoplay = true;
   video.playsInline = true;
   video.muted = (type === 'local');
+  
   if (type === 'local') {
     video.style.transform = 'scaleX(-1)';
   } else {
     video.classList.add('remote-video');
   }
+  
   video.className = 'w-full h-full object-cover';
+  
   video.onloadedmetadata = () => {
     console.log(`✅ Video metadata loaded for ${userName}`);
     video.play().catch(err => {
-      console.error(`Play failed for ${userName}:`, err);
+      console.error('Play failed:', err);
       addChatMessage('System', `Failed to play video for ${userName}: ${err.message}`, 'incoming');
     });
   };
-  video.onerror = () => {
-    console.error(`Video error for ${userName}`);
-    addChatMessage('System', `Video error for ${userName}`, 'incoming');
-  };
+  
   const label = document.createElement('div');
   label.className = 'absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm';
   label.textContent = userName + (type === 'local' ? ' (You)' : '');
+  
   const status = document.createElement('div');
   status.className = 'absolute top-2 right-2 flex gap-1';
   status.innerHTML = `
     <span class="h-3 w-3 rounded-full ${type === 'local' ? (isVideoOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
     <span class="h-3 w-3 rounded-full ${type === 'local' ? (isAudioOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
   `;
+  
   container.appendChild(video);
   container.appendChild(label);
   container.appendChild(status);
   videoGrid.appendChild(container);
+  
   const placeholder = videoGrid.querySelector('.text-center');
   if (placeholder) placeholder.remove();
+  
   console.log(`✅ Added ${type} video stream for ${userName}`);
 }
 
@@ -206,24 +212,27 @@ function removeVideoStream(idKey) {
 // Create peer connection
 function createPeerConnection(userId) {
   console.log(`🔗 Creating peer connection for ${userId}`);
+  
   const peerConnection = new RTCPeerConnection({
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
-      // Add TURN server for testing (replace with your own for production)
-      {
-        urls: 'turn:openrelay.metered.ca:80',
-        username: 'openrelayproject',
-        credential: 'openrelayprojectsecret'
-      }
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' },
+      { urls: 'stun:stun.voipbuster.com:3478' },
+      { urls: 'stun:stun.voipstunt.com:3478' }
+      // Add TURN server here if available
     ]
   });
+
   if (myStream) {
     myStream.getTracks().forEach(track => {
       console.log(`Adding track ${track.kind} to peer connection for ${userId}`);
       peerConnection.addTrack(track, myStream);
     });
   }
+
   peerConnection.ontrack = (event) => {
     console.log(`📹 Received remote track from ${userId}`, event.streams);
     if (event.streams && event.streams[0]) {
@@ -232,17 +241,15 @@ function createPeerConnection(userId) {
       console.log('Tracks in stream:', remoteStream.getTracks());
       if (videoTracks.length === 0) {
         console.warn(`No video tracks in stream from ${userId}`);
-        addChatMessage('System', `${userDisplayNames[userId] || 'User'} has no video stream (camera off or unavailable)`, 'incoming');
-      } else {
-        console.log(`Video tracks received:`, videoTracks);
+        addChatMessage('System', `${userDisplayNames[userId] || 'User'} has no video stream available`, 'incoming');
       }
       const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
       addVideoStream(remoteStream, displayName, 'remote', userId);
     } else {
       console.warn('No streams received for user:', userId);
-      addChatMessage('System', `No video stream received from ${userDisplayNames[userId] || 'User'}`, 'incoming');
     }
   };
+
   peerConnection.onicecandidate = (event) => {
     if (event.candidate && currentRoom) {
       socket.emit('ice-candidate', {
@@ -252,6 +259,7 @@ function createPeerConnection(userId) {
       });
     }
   };
+
   peerConnection.onconnectionstatechange = () => {
     console.log(`🔗 Peer ${userId} connection state:`, peerConnection.connectionState);
     if (peerConnection.connectionState === 'failed') {
@@ -259,6 +267,7 @@ function createPeerConnection(userId) {
       addChatMessage('System', `Failed to connect to ${userDisplayNames[userId] || 'User'}`, 'incoming');
     }
   };
+
   peerConnection.oniceconnectionstatechange = () => {
     console.log(`❄️ Peer ${userId} ICE state:`, peerConnection.iceConnectionState);
     if (peerConnection.iceConnectionState === 'failed') {
@@ -267,17 +276,13 @@ function createPeerConnection(userId) {
       createAndSendOffer(userId);
     }
   };
+
   return peerConnection;
 }
 
 // Create and send offer
 async function createAndSendOffer(userId) {
   try {
-    if (!currentRoom) {
-      console.error('Cannot send offer: currentRoom is null');
-      addChatMessage('System', 'Error: Room not joined. Please try rejoining.', 'incoming');
-      return;
-    }
     console.log(`📤 Creating offer for ${userId}`);
     if (peers[userId]) {
       console.log(`Peer connection already exists for ${userId}, closing it`);
@@ -296,7 +301,6 @@ async function createAndSendOffer(userId) {
     console.log(`✅ Offer sent to ${userId}`);
   } catch (error) {
     console.error('Error creating offer:', error);
-    addChatMessage('System', `Error creating offer: ${error.message}`, 'incoming');
   }
 }
 
@@ -307,10 +311,13 @@ joinBtn.addEventListener('click', async () => {
     alert('Please enter a room name');
     return;
   }
+  
   if (!await initMedia()) return;
+  
   currentRoom = room;
   updateConnectionStatus('connecting');
   socket.emit('join-room', room, myDisplayName);
+  
   joinBtn.disabled = true;
   roomNameInput.disabled = true;
   displayNameInput.disabled = true;
@@ -321,18 +328,23 @@ leaveBtn.addEventListener('click', () => {
   if (currentRoom) {
     socket.emit('leave-room', currentRoom);
   }
+  
   Object.values(peers).forEach(peer => peer.close());
   Object.keys(peers).forEach(key => delete peers[key]);
+  
   if (myStream) {
     myStream.getTracks().forEach(track => track.stop());
   }
+  
   videoGrid.innerHTML = `
     <div class="text-center text-gray-500 py-8 col-span-2">
       <i class="fas fa-video text-4xl mb-4"></i>
       <p>Join a room to start video calling</p>
     </div>
   `;
+  
   chatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
+  
   [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
     b.disabled = true;
     if (b !== leaveBtn) {
@@ -340,9 +352,11 @@ leaveBtn.addEventListener('click', () => {
       b.classList.add('bg-gray-700');
     }
   });
+  
   joinBtn.disabled = false;
   roomNameInput.disabled = false;
   displayNameInput.disabled = false;
+  
   updateConnectionStatus('disconnected');
   currentRoom = null;
 });
@@ -389,7 +403,6 @@ socket.on('offer', async (data) => {
     console.log('📤 Sent answer to', data.from);
   } catch (error) {
     console.error('Error handling offer:', error);
-    addChatMessage('System', `Error handling offer: ${error.message}`, 'incoming');
   }
 });
 
@@ -410,7 +423,6 @@ socket.on('answer', async (data) => {
     }
   } catch (error) {
     console.error('Error handling answer:', error);
-    addChatMessage('System', `Error handling answer: ${error.message}`, 'incoming');
   }
 });
 
@@ -427,7 +439,6 @@ socket.on('ice-candidate', async (data) => {
     }
   } catch (error) {
     console.error('Error adding ICE candidate:', error);
-    addChatMessage('System', `Error adding ICE candidate: ${error.message}`, 'incoming');
   }
 });
 
@@ -461,19 +472,6 @@ socket.on('user-media-update', (data) => {
 socket.on('error', (data) => {
   console.error('Server error:', data.message);
   addChatMessage('System', `Error: ${data.message}`, 'incoming');
-});
-
-socket.on('reconnect', () => {
-  console.log('🔄 Reconnected to server');
-  if (currentRoom) {
-    socket.emit('join-room', currentRoom, myDisplayName);
-    addChatMessage('System', 'Reconnected to the server', 'incoming');
-  }
-});
-
-socket.on('connect_error', (error) => {
-  console.error('Connection error:', error);
-  addChatMessage('System', 'Connection to server lost. Attempting to reconnect...', 'incoming');
 });
 
 // Chat functionality
