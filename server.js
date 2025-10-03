@@ -19,12 +19,91 @@ const mediaRooms = new Map();
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
 
-  // Video call room events (existing code)
+  // Video call room events
   socket.on('join-room', (roomName, displayName) => {
-    // ... existing video call room code ...
+    try {
+      console.log(`🎯 ${socket.id} joining room ${roomName} as ${displayName}`);
+      for (const r of socket.rooms) {
+        if (r !== socket.id) socket.leave(r);
+      }
+      socket.join(roomName);
+      if (!rooms.has(roomName)) rooms.set(roomName, new Map());
+      const room = rooms.get(roomName);
+      room.set(socket.id, {
+        id: socket.id,
+        displayName: displayName || `User${socket.id.substring(0, 6)}`
+      });
+      console.log(`📊 Room ${roomName} has ${room.size} users`);
+      const otherUsers = Array.from(room.values()).filter(user => user.id !== socket.id);
+      socket.emit('room-joined', otherUsers);
+      socket.to(roomName).emit('user-connected', {
+        id: socket.id,
+        displayName: displayName || `User${socket.id.substring(0, 6)}`
+      });
+    } catch (err) {
+      console.error('❌ Error join-room:', err);
+      socket.emit('error', { message: 'Failed to join room' });
+    }
   });
 
-  // ... other existing video call events ...
+  socket.on('offer', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid offer: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send offer: user ${data.to} not found in room ${data.room}` });
+      return;
+    }
+    socket.to(data.to).emit('offer', {
+      offer: data.offer,
+      from: socket.id,
+      room: data.room
+    });
+  });
+
+  socket.on('answer', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid answer: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send answer: user ${data.to} not found in room ${data.room}` });
+      return;
+    }
+    socket.to(data.to).emit('answer', {
+      answer: data.answer,
+      from: socket.id,
+      room: data.room
+    });
+  });
+
+  socket.on('ice-candidate', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid ICE candidate: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send ICE candidate: user ${data.to} not found in room ${data.room}` });
+      return;
+    }
+    socket.to(data.to).emit('ice-candidate', {
+      candidate: data.candidate,
+      from: socket.id,
+      room: data.room
+    });
+  });
+
+  socket.on('chat-message', (data) => {
+    if (!rooms.has(data.room)) return;
+    socket.to(data.room).emit('chat-message', {
+      message: data.message,
+      userId: socket.id,
+      userName: data.userName
+    });
+  });
+
+  socket.on('user-media-update', (data) => {
+    if (!rooms.has(data.room)) return;
+    socket.to(data.room).emit('user-media-update', {
+      userId: socket.id,
+      video: data.video,
+      audio: data.audio
+    });
+  });
+
+  socket.on('leave-room', (roomName) => handleUserLeave(roomName, socket.id));
 
   // ============ MEDIA SHARING EVENTS ============
   
@@ -185,9 +264,19 @@ io.on('connection', (socket) => {
     }
   }
 
-  // Existing video call room cleanup function
   function handleUserLeave(roomName, userId) {
-    // ... existing video call room cleanup code ...
+    if (!rooms.has(roomName)) return;
+    const room = rooms.get(roomName);
+    if (room.has(userId)) {
+      const userName = room.get(userId).displayName;
+      room.delete(userId);
+      console.log(`⬅️ ${userId} (${userName}) left room ${roomName}`);
+      socket.to(roomName).emit('user-disconnected', userId);
+      if (room.size === 0) {
+        rooms.delete(roomName);
+        console.log(`🗑️ Room ${roomName} deleted (empty)`);
+      }
+    }
   }
 });
 
