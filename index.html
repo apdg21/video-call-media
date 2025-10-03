@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Family Video Call</title>
+  <title>Family Video Call3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -24,7 +24,6 @@
   </style>
 </head>
 <body class="bg-gray-900 text-white">
-  <!-- Header -->
   <header class="bg-gray-800 p-4 shadow-md flex justify-between">
     <h1 class="text-2xl font-bold flex items-center">
       <i class="fas fa-users mr-2 text-blue-400"></i> Family Video Call
@@ -35,9 +34,7 @@
     </div>
   </header>
 
-  <!-- Main -->
   <main class="container mx-auto p-4 flex flex-col lg:flex-row gap-6">
-    <!-- Video -->
     <div class="lg:w-3/4">
       <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-4">
         <div class="flex flex-col md:flex-row gap-4">
@@ -69,7 +66,6 @@
       </div>
     </div>
 
-    <!-- Chat -->
     <div class="lg:w-1/4 bg-gray-800 rounded-lg shadow-lg flex flex-col h-[600px]">
       <div class="p-4 border-b border-gray-700 flex items-center">
         <i class="fas fa-comments mr-2 text-blue-400"></i><h2>Chat</h2>
@@ -241,11 +237,8 @@ function createPeerConnection(userId) {
     if (event.streams && event.streams[0]) {
       const remoteStream = event.streams[0];
       
-      // Wait a bit for the stream to be ready
-      setTimeout(() => {
-        const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
-        addVideoStream(remoteStream, displayName, 'remote', userId);
-      }, 100);
+      const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
+      addVideoStream(remoteStream, displayName, 'remote', userId);
     }
   };
 
