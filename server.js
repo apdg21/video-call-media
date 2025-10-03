@@ -101,6 +101,37 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ============ MEDIA SHARING EVENTS ============
+  
+  socket.on('media-control', (data) => {
+    if (!rooms.has(data.room)) {
+      console.warn(`Media control for non-existent room: ${data.room}`);
+      return;
+    }
+    console.log(`🎮 Media control from ${socket.id} in room ${data.room}:`, data.type);
+    
+    // Broadcast media control to all other users in the room
+    socket.to(data.room).emit('media-control', {
+      ...data,
+      from: socket.id
+    });
+  });
+
+  socket.on('media-chat-message', (data) => {
+    if (!rooms.has(data.room)) {
+      console.warn(`Media chat for non-existent room: ${data.room}`);
+      return;
+    }
+    console.log(`💬 Media chat from ${socket.id} in room ${data.room}`);
+    
+    // Broadcast media chat message to all other users in the room
+    socket.to(data.room).emit('media-chat-message', {
+      message: data.message,
+      userId: socket.id,
+      userName: data.userName
+    });
+  });
+
   socket.on('leave-room', (roomName) => handleUserLeave(roomName, socket.id));
   
   socket.on('disconnect', () => {
