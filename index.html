@@ -84,6 +84,7 @@
     </div>
   </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
 // Use relative path for socket.io
 const socket = io();
@@ -236,8 +237,8 @@ function createPeerConnection(userId) {
     console.log(`📹 Received remote track from ${userId}`, event.streams);
     if (event.streams && event.streams[0]) {
       const remoteStream = event.streams[0];
-      console.log('Tracks in stream:', remoteStream.getTracks());
       const videoTracks = remoteStream.getVideoTracks();
+      console.log('Tracks in stream:', remoteStream.getTracks());
       if (videoTracks.length === 0) {
         console.warn(`No video tracks in stream from ${userId}`);
         addChatMessage('System', `${userDisplayNames[userId] || 'User'} has no video stream available`, 'incoming');
@@ -272,6 +273,7 @@ function createPeerConnection(userId) {
     if (peerConnection.iceConnectionState === 'failed') {
       console.error(`ICE connection failed for ${userId}`);
       peerConnection.restartIce();
+      createAndSendOffer(userId);
     }
   };
 
@@ -282,6 +284,11 @@ function createPeerConnection(userId) {
 async function createAndSendOffer(userId) {
   try {
     console.log(`📤 Creating offer for ${userId}`);
+    if (peers[userId]) {
+      console.log(`Peer connection already exists for ${userId}, closing it`);
+      peers[userId].close();
+      delete peers[userId];
+    }
     const peerConnection = createPeerConnection(userId);
     peers[userId] = peerConnection;
     const offer = await peerConnection.createOffer();
@@ -359,7 +366,7 @@ socket.on('room-joined', (users) => {
   console.log('👥 Room joined, existing users:', users);
   updateConnectionStatus('connected');
   users.forEach(user => {
-    if (user.id !== socket.id) {
+    if (user.id !== socket.id && !peers[user.id]) {
       userDisplayNames[user.id] = user.displayName;
       createAndSendOffer(user.id);
     }
@@ -369,7 +376,11 @@ socket.on('room-joined', (users) => {
 socket.on('user-connected', (userData) => {
   console.log('👋 New user joined:', userData);
   userDisplayNames[userData.id] = userData.displayName;
-  createAndSendOffer(userData.id);
+  if (!peers[userData.id]) {
+    createAndSendOffer(userData.id);
+  } else {
+    console.log(`Peer connection already exists for ${userData.id}`);
+  }
 });
 
 socket.on('offer', async (data) => {
@@ -377,7 +388,7 @@ socket.on('offer', async (data) => {
     console.warn(`Received offer for wrong room: ${data.room}, expected: ${currentRoom}`);
     return;
   }
-  console.log('📨 Received offer from', data.from, data.offer);
+  console.log('📨 Offer received:', { from: data.from, room: data.room, offer: data.offer });
   try {
     const peerConnection = createPeerConnection(data.from);
     peers[data.from] = peerConnection;
@@ -400,9 +411,13 @@ socket.on('answer', async (data) => {
     console.warn(`Received answer for wrong room: ${data.room}, expected: ${currentRoom}`);
     return;
   }
-  console.log('📨 Received answer from', data.from, data.answer);
+  console.log('📨 Answer received:', { from: data.from, room: data.room, answer: data.answer });
   try {
     if (peers[data.from]) {
+      if (peers[data.from].signalingState !== 'have-local-offer') {
+        console.warn(`Invalid signaling state for answer: ${peers[data.from].signalingState}`);
+        return;
+      }
       await peers[data.from].setRemoteDescription(data.answer);
       console.log('✅ Set remote description for', data.from);
     }
@@ -452,6 +467,11 @@ socket.on('user-media-update', (data) => {
       addChatMessage('System', `${userDisplayNames[data.userId] || 'User'} has turned off their video`, 'incoming');
     }
   }
+});
+
+socket.on('error', (data) => {
+  console.error('Server error:', data.message);
+  addChatMessage('System', `Error: ${data.message}`, 'incoming');
 });
 
 // Chat functionality
@@ -549,7 +569,8 @@ setInterval(() => {
     Object.entries(peers).forEach(([id, peer]) => {
       console.log(`Peer ${id}:`, {
         connectionState: peer.connectionState,
-        iceConnectionState: peer.iceConnectionState
+        iceConnectionState: peer.iceConnectionState,
+        signalingState: peer.signalingState
       });
     });
   }
