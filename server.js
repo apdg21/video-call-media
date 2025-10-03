@@ -8,13 +8,11 @@ const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-// Serve static files
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => res.sendFile(__dirname + '/index.html'));
 app.get('/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
-// Store active rooms and users
 const rooms = new Map();
 
 io.on('connection', (socket) => {
@@ -23,30 +21,19 @@ io.on('connection', (socket) => {
   socket.on('join-room', (roomName, displayName) => {
     try {
       console.log(`🎯 ${socket.id} joining room ${roomName} as ${displayName}`);
-
-      // Leave previous rooms
       for (const r of socket.rooms) {
         if (r !== socket.id) socket.leave(r);
       }
-
       socket.join(roomName);
-
       if (!rooms.has(roomName)) rooms.set(roomName, new Map());
       const room = rooms.get(roomName);
-
-      // Add/update user
       room.set(socket.id, {
         id: socket.id,
         displayName: displayName || `User${socket.id.substring(0, 6)}`
       });
-
       console.log(`📊 Room ${roomName} has ${room.size} users`);
-
-      // Get existing users (excluding self)
       const otherUsers = Array.from(room.values()).filter(user => user.id !== socket.id);
       socket.emit('room-joined', otherUsers);
-
-      // Notify others about new user
       socket.to(roomName).emit('user-connected', {
         id: socket.id,
         displayName: displayName || `User${socket.id.substring(0, 6)}`
@@ -58,27 +45,43 @@ io.on('connection', (socket) => {
   });
 
   socket.on('offer', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid offer: room ${data.room} or user ${data.to} not found`);
+      return;
+    }
     socket.to(data.to).emit('offer', {
       offer: data.offer,
-      from: socket.id
+      from: socket.id,
+      room: data.room
     });
   });
 
   socket.on('answer', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid answer: room ${data.room} or user ${data.to} not found`);
+      return;
+    }
     socket.to(data.to).emit('answer', {
       answer: data.answer,
-      from: socket.id
+      from: socket.id,
+      room: data.room
     });
   });
 
   socket.on('ice-candidate', (data) => {
+    if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
+      console.warn(`Invalid ICE candidate: room ${data.room} or user ${data.to} not found`);
+      return;
+    }
     socket.to(data.to).emit('ice-candidate', {
       candidate: data.candidate,
-      from: socket.id
+      from: socket.id,
+      room: data.room
     });
   });
 
   socket.on('chat-message', (data) => {
+    if (!rooms.has(data.room)) return;
     socket.to(data.room).emit('chat-message', {
       message: data.message,
       userId: socket.id,
@@ -87,23 +90,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('user-media-update', (data) => {
+    if (!rooms.has(data.room)) return;
     socket.to(data.room).emit('user-media-update', {
       userId: socket.id,
       video: data.video,
       audio: data.audio
-    });
-  });
-
-  socket.on('update-display-name', (data) => {
-    if (rooms.has(data.room)) {
-      const roomData = rooms.get(data.room);
-      if (roomData.has(socket.id)) {
-        roomData.get(socket.id).displayName = data.displayName;
-      }
-    }
-    socket.to(data.room).emit('update-display-name', {
-      userId: socket.id,
-      displayName: data.displayName
     });
   });
 
