@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Family Video Call & Media Sharing</title>
+  <title>Family Video Call</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -126,149 +126,149 @@
   </div>
 
   <!-- Media Sharing Tab -->
-<div id="mediaSharingContent" class="tab-content">
-  <main class="container mx-auto p-4">
-    <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
-      <h2 class="text-xl font-bold mb-4 flex items-center">
-        <i class="fas fa-film mr-2 text-blue-400"></i> Media Sharing
-      </h2>
-      
-      <!-- Media Room Connection -->
-      <div class="bg-gray-700 p-4 rounded-lg mb-6">
-        <h3 class="text-lg font-semibold mb-3 flex items-center">
-          <i class="fas fa-door-open mr-2 text-green-500"></i> Media Room
-        </h3>
-        <div class="flex flex-col md:flex-row gap-4 mb-4">
-          <input id="mediaRoomName" placeholder="Media room name" value="family-media-room"
-                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
-          <input id="mediaDisplayName" placeholder="Your name for media" value="User"
-                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
-          <button id="joinMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
-            <i class="fas fa-play mr-2"></i> Join Media Room
-          </button>
-          <button id="leaveMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-stop mr-2"></i> Leave
-          </button>
-        </div>
-        <div id="mediaRoomStatus" class="flex items-center text-sm">
-          <span class="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
-          <span>Not connected to media room</span>
-        </div>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- YouTube Video Section -->
-        <div class="bg-gray-700 p-4 rounded-lg">
+  <div id="mediaSharingContent" class="tab-content">
+    <main class="container mx-auto p-4">
+      <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
+        <h2 class="text-xl font-bold mb-4 flex items-center">
+          <i class="fas fa-film mr-2 text-blue-400"></i> Media Sharing
+        </h2>
+        
+        <!-- Media Room Connection -->
+        <div class="bg-gray-700 p-4 rounded-lg mb-6">
           <h3 class="text-lg font-semibold mb-3 flex items-center">
-            <i class="fab fa-youtube mr-2 text-red-500"></i> YouTube Video
+            <i class="fas fa-door-open mr-2 text-green-500"></i> Media Room
           </h3>
-          <div class="mb-3">
-            <input id="youtubeUrl" placeholder="Paste YouTube URL here" 
-                   class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
-            <button id="loadYoutubeBtn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg">
-              <i class="fab fa-youtube mr-2"></i> Load YouTube Video
+          <div class="flex flex-col md:flex-row gap-4 mb-4">
+            <input id="mediaRoomName" placeholder="Media room name" value="family-media-room"
+                   class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
+            <input id="mediaDisplayName" placeholder="Your name for media" value="User"
+                   class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
+            <button id="joinMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
+              <i class="fas fa-play mr-2"></i> Join Media Room
+            </button>
+            <button id="leaveMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-stop mr-2"></i> Leave
             </button>
           </div>
-          <div id="youtubePlayer" class="media-player">
-            <div class="text-center text-gray-400 py-8">
-              <i class="fab fa-youtube text-4xl mb-4"></i>
-              <p>Enter a YouTube URL to load a video</p>
+          <div id="mediaRoomStatus" class="flex items-center text-sm">
+            <span class="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
+            <span>Not connected to media room</span>
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- YouTube Video Section -->
+          <div class="bg-gray-700 p-4 rounded-lg">
+            <h3 class="text-lg font-semibold mb-3 flex items-center">
+              <i class="fab fa-youtube mr-2 text-red-500"></i> YouTube Video
+            </h3>
+            <div class="mb-3">
+              <input id="youtubeUrl" placeholder="Paste YouTube URL here" 
+                     class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
+              <button id="loadYoutubeBtn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg" disabled>
+                <i class="fab fa-youtube mr-2"></i> Load YouTube Video
+              </button>
+            </div>
+            <div id="youtubePlayer" class="media-player">
+              <div class="text-center text-gray-400 py-8">
+                <i class="fab fa-youtube text-4xl mb-4"></i>
+                <p>Join a media room and enter a YouTube URL to load a video</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Local File Section -->
+          <div class="bg-gray-700 p-4 rounded-lg">
+            <h3 class="text-lg font-semibold mb-3 flex items-center">
+              <i class="fas fa-file-video mr-2 text-green-500"></i> Local Media File
+            </h3>
+            <div class="mb-3">
+              <input type="file" id="localFileInput" accept="video/*,audio/*" 
+                     class="w-full p-2 bg-gray-600 border border-gray-500 rounded-lg mb-2">
+              <button id="playLocalBtn" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg" disabled>
+                <i class="fas fa-play mr-2"></i> Play Local File
+              </button>
+            </div>
+            <div id="localFilePlayer" class="media-player">
+              <div class="text-center text-gray-400 py-8">
+                <i class="fas fa-file-video text-4xl mb-4"></i>
+                <p>Join a media room and select a video or audio file to play</p>
+              </div>
             </div>
           </div>
         </div>
         
-        <!-- Local File Section -->
-        <div class="bg-gray-700 p-4 rounded-lg">
+        <!-- Media Controls -->
+        <div class="mt-6 bg-gray-700 p-4 rounded-lg">
           <h3 class="text-lg font-semibold mb-3 flex items-center">
-            <i class="fas fa-file-video mr-2 text-green-500"></i> Local Media File
+            <i class="fas fa-sliders-h mr-2 text-blue-400"></i> Media Controls
           </h3>
-          <div class="mb-3">
-            <input type="file" id="localFileInput" accept="video/*,audio/*" 
-                   class="w-full p-2 bg-gray-600 border border-gray-500 rounded-lg mb-2">
-            <button id="playLocalBtn" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg" disabled>
-              <i class="fas fa-play mr-2"></i> Play Local File
+          <div class="flex flex-wrap gap-4">
+            <button id="playMediaBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-play mr-2"></i> Play
+            </button>
+            <button id="pauseMediaBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-pause mr-2"></i> Pause
+            </button>
+            <button id="stopMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-stop mr-2"></i> Stop
+            </button>
+            <button id="syncMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-sync mr-2"></i> Sync with Room
+            </button>
+            <button id="becomeHostBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg" disabled>
+              <i class="fas fa-crown mr-2"></i> Become Host
             </button>
           </div>
-          <div id="localFilePlayer" class="media-player">
-            <div class="text-center text-gray-400 py-8">
-              <i class="fas fa-file-video text-4xl mb-4"></i>
-              <p>Select a video or audio file to play</p>
+          <div class="mt-4">
+            <label for="mediaProgress" class="block text-sm font-medium mb-2">Progress</label>
+            <input type="range" id="mediaProgress" min="0" max="100" value="0" 
+                   class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
+          </div>
+          <div class="mt-2 flex justify-between text-sm text-gray-400">
+            <span id="currentTime">0:00</span>
+            <span id="duration">0:00</span>
+          </div>
+        </div>
+        
+        <!-- Media Participants -->
+        <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+          <h3 class="text-lg font-semibold mb-3 flex items-center">
+            <i class="fas fa-users mr-2 text-blue-400"></i> Media Room Participants
+          </h3>
+          <div id="mediaParticipants" class="flex flex-wrap gap-2">
+            <div class="text-center text-gray-400 py-4 w-full">
+              <p>No participants in media room</p>
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Media Controls -->
-      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
-        <h3 class="text-lg font-semibold mb-3 flex items-center">
-          <i class="fas fa-sliders-h mr-2 text-blue-400"></i> Media Controls
-        </h3>
-        <div class="flex flex-wrap gap-4">
-          <button id="playMediaBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-play mr-2"></i> Play
-          </button>
-          <button id="pauseMediaBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-pause mr-2"></i> Pause
-          </button>
-          <button id="stopMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-stop mr-2"></i> Stop
-          </button>
-          <button id="syncMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-sync mr-2"></i> Sync with Room
-          </button>
-          <button id="becomeHostBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg" disabled>
-            <i class="fas fa-crown mr-2"></i> Become Host
-          </button>
-        </div>
-        <div class="mt-4">
-          <label for="mediaProgress" class="block text-sm font-medium mb-2">Progress</label>
-          <input type="range" id="mediaProgress" min="0" max="100" value="0" 
-                 class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
-        </div>
-        <div class="mt-2 flex justify-between text-sm text-gray-400">
-          <span id="currentTime">0:00</span>
-          <span id="duration">0:00</span>
-        </div>
-      </div>
-      
-      <!-- Media Participants -->
-      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
-        <h3 class="text-lg font-semibold mb-3 flex items-center">
-          <i class="fas fa-users mr-2 text-blue-400"></i> Media Room Participants
-        </h3>
-        <div id="mediaParticipants" class="flex flex-wrap gap-2">
-          <div class="text-center text-gray-400 py-4 w-full">
-            <p>No participants in media room</p>
+        
+        <!-- Media Chat -->
+        <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+          <h3 class="text-lg font-semibold mb-3 flex items-center">
+            <i class="fas fa-comments mr-2 text-blue-400"></i> Media Chat
+          </h3>
+          <div id="mediaChatMessages" class="h-40 overflow-y-auto mb-3 p-3 bg-gray-800 rounded-lg">
+            <div class="text-center text-gray-400 py-4">No media chat messages yet.</div>
+          </div>
+          <div class="flex">
+            <input id="mediaChatInput" placeholder="Type about the media..." disabled
+                   class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-l-lg">
+            <button id="sendMediaChatBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg" disabled>
+              <i class="fas fa-paper-plane"></i>
+            </button>
           </div>
         </div>
       </div>
-      
-      <!-- Media Chat -->
-      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
-        <h3 class="text-lg font-semibold mb-3 flex items-center">
-          <i class="fas fa-comments mr-2 text-blue-400"></i> Media Chat
-        </h3>
-        <div id="mediaChatMessages" class="h-40 overflow-y-auto mb-3 p-3 bg-gray-800 rounded-lg">
-          <div class="text-center text-gray-400 py-4">No media chat messages yet.</div>
-        </div>
-        <div class="flex">
-          <input id="mediaChatInput" placeholder="Type about the media..." disabled
-                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-l-lg">
-          <button id="sendMediaChatBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg" disabled>
-            <i class="fas fa-paper-plane"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-  </main>
-</div>
+    </main>
+  </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <!-- YouTube IFrame API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 // Use relative path for socket.io
-const socket = io(window.location.origin);  // Ensures connection to current host (e.g., https://video-call-media.onrender.com)
+const socket = io(window.location.origin);
 
 // DOM Elements
 const videoGrid = document.getElementById('videoGrid');
@@ -290,6 +290,12 @@ const videoCallContent = document.getElementById('videoCallContent');
 const mediaSharingContent = document.getElementById('mediaSharingContent');
 
 // Media Sharing Elements
+const mediaRoomName = document.getElementById('mediaRoomName');
+const mediaDisplayName = document.getElementById('mediaDisplayName');
+const joinMediaBtn = document.getElementById('joinMediaBtn');
+const leaveMediaBtn = document.getElementById('leaveMediaBtn');
+const mediaRoomStatus = document.getElementById('mediaRoomStatus');
+const mediaParticipants = document.getElementById('mediaParticipants');
 const youtubeUrl = document.getElementById('youtubeUrl');
 const loadYoutubeBtn = document.getElementById('loadYoutubeBtn');
 const youtubePlayer = document.getElementById('youtubePlayer');
@@ -300,6 +306,7 @@ const playMediaBtn = document.getElementById('playMediaBtn');
 const pauseMediaBtn = document.getElementById('pauseMediaBtn');
 const stopMediaBtn = document.getElementById('stopMediaBtn');
 const syncMediaBtn = document.getElementById('syncMediaBtn');
+const becomeHostBtn = document.getElementById('becomeHostBtn');
 const mediaProgress = document.getElementById('mediaProgress');
 const currentTime = document.getElementById('currentTime');
 const duration = document.getElementById('duration');
@@ -320,8 +327,11 @@ const userDisplayNames = {};
 let youtubePlayerObj = null;
 let localMediaPlayer = null;
 let currentMediaType = null; // 'youtube', 'local'
-let isHostControllingMedia = false;
+let isMediaHost = false;
+let currentMediaRoom = null;
 let mediaSyncInterval = null;
+let mediaDisplayNameValue = 'User';
+const mediaRoomUsers = new Map();
 
 // Tab switching
 videoCallTab.addEventListener('click', () => {
@@ -449,7 +459,6 @@ function createPeerConnection(userId) {
       { urls: 'stun:stun4.l.google.com:19302' },
       { urls: 'stun:stun.voipbuster.com:3478' },
       { urls: 'stun:stun.voipstunt.com:3478' }
-      // Add TURN server here if available
     ]
   });
 
@@ -791,9 +800,216 @@ toggleAudioBtn.addEventListener('click', () => {
 
 // ==================== MEDIA SHARING FUNCTIONALITY ====================
 
+// Media Room Connection
+joinMediaBtn.addEventListener('click', () => {
+  const room = mediaRoomName.value.trim().toLowerCase();
+  if (!room) {
+    alert('Please enter a media room name');
+    return;
+  }
+  
+  mediaDisplayNameValue = mediaDisplayName.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
+  currentMediaRoom = room;
+  
+  socket.emit('join-media-room', room, mediaDisplayNameValue);
+  
+  joinMediaBtn.disabled = true;
+  mediaRoomName.disabled = true;
+  mediaDisplayName.disabled = true;
+  leaveMediaBtn.disabled = false;
+  
+  updateMediaRoomStatus('connecting');
+});
+
+leaveMediaBtn.addEventListener('click', () => {
+  leaveMediaRoom();
+});
+
+function leaveMediaRoom() {
+  if (currentMediaRoom) {
+    socket.emit('leave-media-room', currentMediaRoom);
+  }
+  
+  // Reset media state
+  stopMediaSync();
+  if (youtubePlayerObj) {
+    youtubePlayerObj.destroy();
+    youtubePlayerObj = null;
+  }
+  if (localMediaPlayer) {
+    localMediaPlayer.pause();
+    localMediaPlayer = null;
+  }
+  
+  youtubePlayer.innerHTML = `
+    <div class="text-center text-gray-400 py-8">
+      <i class="fab fa-youtube text-4xl mb-4"></i>
+      <p>Join a media room and enter a YouTube URL to load a video</p>
+    </div>
+  `;
+  
+  localFilePlayer.innerHTML = `
+    <div class="text-center text-gray-400 py-8">
+      <i class="fas fa-file-video text-4xl mb-4"></i>
+      <p>Join a media room and select a video or audio file to play</p>
+    </div>
+  `;
+  
+  mediaParticipants.innerHTML = `
+    <div class="text-center text-gray-400 py-4 w-full">
+      <p>No participants in media room</p>
+    </div>
+  `;
+  
+  mediaChatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No media chat messages yet.</div>';
+  
+  [loadYoutubeBtn, playLocalBtn, playMediaBtn, pauseMediaBtn, stopMediaBtn, syncMediaBtn, becomeHostBtn, mediaChatInput, sendMediaChatBtn].forEach(btn => {
+    btn.disabled = true;
+  });
+  
+  mediaProgress.disabled = true;
+  mediaProgress.value = 0;
+  currentTime.textContent = '0:00';
+  duration.textContent = '0:00';
+  
+  joinMediaBtn.disabled = false;
+  mediaRoomName.disabled = false;
+  mediaDisplayName.disabled = false;
+  leaveMediaBtn.disabled = true;
+  
+  updateMediaRoomStatus('disconnected');
+  currentMediaRoom = null;
+  isMediaHost = false;
+  mediaRoomUsers.clear();
+}
+
+function updateMediaRoomStatus(status) {
+  const indicator = mediaRoomStatus.querySelector('.h-3');
+  const text = mediaRoomStatus.querySelector('span:last-child');
+  
+  indicator.className = 'h-3 w-3 rounded-full mr-2 ' +
+    (status === 'connected' ? 'bg-green-500' : 
+     status === 'connecting' ? 'bg-yellow-500 pulse-connecting' : 'bg-red-500');
+  
+  text.textContent = 
+    status === 'connected' ? `Connected to ${currentMediaRoom} (${isMediaHost ? 'Host' : 'Participant'})` :
+    status === 'connecting' ? 'Connecting to media room...' : 'Not connected to media room';
+}
+
+function updateMediaParticipants() {
+  mediaParticipants.innerHTML = '';
+  
+  if (mediaRoomUsers.size === 0) {
+    mediaParticipants.innerHTML = `
+      <div class="text-center text-gray-400 py-4 w-full">
+        <p>No participants in media room</p>
+      </div>
+    `;
+    return;
+  }
+  
+  mediaRoomUsers.forEach((user, userId) => {
+    const participant = document.createElement('div');
+    participant.className = 'bg-gray-600 px-3 py-2 rounded-lg flex items-center';
+    participant.innerHTML = `
+      <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+      <span class="text-sm">${user.displayName} ${userId === socket.id ? '(You)' : ''}</span>
+      ${user.isHost ? '<i class="fas fa-crown ml-2 text-yellow-400"></i>' : ''}
+    `;
+    mediaParticipants.appendChild(participant);
+  });
+}
+
+// Media Sharing Socket Events
+socket.on('media-room-joined', (users, hostId) => {
+  console.log('👥 Media room joined, users:', users);
+  
+  users.forEach(user => {
+    mediaRoomUsers.set(user.id, user);
+  });
+  
+  isMediaHost = hostId === socket.id;
+  updateMediaRoomStatus('connected');
+  updateMediaParticipants();
+  
+  // Enable media controls
+  [loadYoutubeBtn, playLocalBtn, mediaChatInput, sendMediaChatBtn].forEach(btn => {
+    btn.disabled = false;
+  });
+  
+  if (isMediaHost) {
+    becomeHostBtn.disabled = true;
+    becomeHostBtn.classList.add('bg-purple-600');
+    addMediaChatMessage('System', 'You are the media host. You can control playback for everyone.', 'incoming');
+  } else {
+    becomeHostBtn.disabled = false;
+    addMediaChatMessage('System', `Connected to media room. ${mediaRoomUsers.get(hostId)?.displayName || 'Someone'} is the host.`, 'incoming');
+  }
+});
+
+socket.on('media-user-connected', (userData) => {
+  console.log('👋 New user joined media room:', userData);
+  mediaRoomUsers.set(userData.id, userData);
+  updateMediaParticipants();
+  addMediaChatMessage('System', `${userData.displayName} joined the media room`, 'incoming');
+});
+
+socket.on('media-user-disconnected', (userId) => {
+  console.log('❌ User left media room:', userId);
+  const userName = mediaRoomUsers.get(userId)?.displayName || 'User';
+  mediaRoomUsers.delete(userId);
+  updateMediaParticipants();
+  addMediaChatMessage('System', `${userName} left the media room`, 'incoming');
+  
+  // If host left, allow someone else to become host
+  if (mediaRoomUsers.size > 0) {
+    const anyHost = Array.from(mediaRoomUsers.values()).some(user => user.isHost);
+    if (!anyHost) {
+      addMediaChatMessage('System', 'Host left. Click "Become Host" to take control.', 'incoming');
+      becomeHostBtn.disabled = false;
+    }
+  }
+});
+
+socket.on('media-host-changed', (newHostId) => {
+  // Update all users' host status
+  mediaRoomUsers.forEach((user, userId) => {
+    user.isHost = userId === newHostId;
+  });
+  
+  isMediaHost = newHostId === socket.id;
+  updateMediaRoomStatus('connected');
+  updateMediaParticipants();
+  
+  if (isMediaHost) {
+    becomeHostBtn.disabled = true;
+    addMediaChatMessage('System', 'You are now the media host!', 'incoming');
+  } else {
+    const hostName = mediaRoomUsers.get(newHostId)?.displayName || 'Someone';
+    addMediaChatMessage('System', `${hostName} is now the media host`, 'incoming');
+  }
+});
+
+socket.on('media-control', (data) => {
+  if (data.room !== currentMediaRoom || data.from === socket.id) return;
+  
+  console.log('🎮 Received media control:', data);
+  
+  if (data.type === 'play') {
+    playMedia();
+  } else if (data.type === 'pause') {
+    pauseMedia();
+  } else if (data.type === 'stop') {
+    stopMedia();
+  } else if (data.type === 'seek') {
+    seekMedia(data.time);
+  } else if (data.type === 'load-youtube') {
+    loadYouTubeVideo(data.videoId, data.startTime);
+  }
+});
+
 // YouTube Player API
 function onYouTubeIframeAPIReady() {
-  // This function is called when the YouTube IFrame API is ready
   console.log('YouTube IFrame API is ready');
 }
 
@@ -821,7 +1037,7 @@ loadYoutubeBtn.addEventListener('click', () => {
   loadYouTubeVideo(videoId);
 });
 
-function loadYouTubeVideo(videoId) {
+function loadYouTubeVideo(videoId, startTime = 0) {
   // Clear any existing player
   if (youtubePlayerObj) {
     youtubePlayerObj.destroy();
@@ -837,7 +1053,8 @@ function loadYouTubeVideo(videoId) {
     playerVars: {
       'playsinline': 1,
       'enablejsapi': 1,
-      'origin': window.location.origin
+      'origin': window.location.origin,
+      'start': startTime
     },
     events: {
       'onReady': onYouTubePlayerReady,
@@ -848,6 +1065,16 @@ function loadYouTubeVideo(videoId) {
   currentMediaType = 'youtube';
   enableMediaControls();
   addMediaChatMessage('System', `Loaded YouTube video: ${youtubeUrl.value}`, 'incoming');
+  
+  // If host, broadcast to room
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'load-youtube',
+      videoId: videoId,
+      startTime: startTime
+    });
+  }
 }
 
 function onYouTubePlayerReady(event) {
@@ -966,57 +1193,99 @@ function disableMediaControls() {
   mediaProgress.disabled = true;
 }
 
-playMediaBtn.addEventListener('click', () => {
+function playMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.playVideo();
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.play();
   }
-  addMediaChatMessage('System', 'Media playback started', 'incoming');
-});
+}
 
-pauseMediaBtn.addEventListener('click', () => {
+function pauseMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.pauseVideo();
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.pause();
   }
-  addMediaChatMessage('System', 'Media playback paused', 'incoming');
-});
+}
 
-stopMediaBtn.addEventListener('click', () => {
+function stopMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.stopVideo();
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.pause();
     localMediaPlayer.currentTime = 0;
   }
-  addMediaChatMessage('System', 'Media playback stopped', 'incoming');
-});
+}
 
-syncMediaBtn.addEventListener('click', () => {
-  if (!currentRoom) {
-    alert('Please join a room first to sync media');
-    return;
+function seekMedia(time) {
+  if (currentMediaType === 'youtube' && youtubePlayerObj) {
+    youtubePlayerObj.seekTo(time, true);
+  } else if (currentMediaType === 'local' && localMediaPlayer) {
+    localMediaPlayer.currentTime = time;
   }
-  
-  isHostControllingMedia = true;
-  startMediaSync();
-  addMediaChatMessage('System', 'Media synced with room', 'incoming');
+}
+
+playMediaBtn.addEventListener('click', () => {
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'play'
+    });
+  }
+  playMedia();
 });
 
-// Media progress control
+pauseMediaBtn.addEventListener('click', () => {
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'pause'
+    });
+  }
+  pauseMedia();
+});
+
+stopMediaBtn.addEventListener('click', () => {
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'stop'
+    });
+  }
+  stopMedia();
+});
+
 mediaProgress.addEventListener('input', () => {
+  if (!isMediaHost) return;
+  
   const progress = mediaProgress.value;
+  let newTime;
   
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    const duration = youtubePlayerObj.getDuration();
-    const newTime = (progress / 100) * duration;
+    const totalDuration = youtubePlayerObj.getDuration();
+    newTime = (progress / 100) * totalDuration;
     youtubePlayerObj.seekTo(newTime, true);
   } else if (currentMediaType === 'local' && localMediaPlayer) {
-    const newTime = (progress / 100) * localMediaPlayer.duration;
+    newTime = (progress / 100) * localMediaPlayer.duration;
     localMediaPlayer.currentTime = newTime;
   }
+  
+  if (newTime !== undefined && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'seek',
+      time: newTime
+    });
+  }
+});
+
+// Become Host
+becomeHostBtn.addEventListener('click', () => {
+  if (!currentMediaRoom) return;
+  
+  socket.emit('media-become-host', currentMediaRoom);
+  becomeHostBtn.disabled = true;
 });
 
 // Media sync functionality
@@ -1026,27 +1295,27 @@ function startMediaSync() {
   }
   
   mediaSyncInterval = setInterval(() => {
-    if (isHostControllingMedia) {
-      let state, time, duration;
+    if (isMediaHost) {
+      let state, time, totalDuration;
       
       if (currentMediaType === 'youtube' && youtubePlayerObj) {
         state = youtubePlayerObj.getPlayerState();
         time = youtubePlayerObj.getCurrentTime();
-        duration = youtubePlayerObj.getDuration();
+        totalDuration = youtubePlayerObj.getDuration();
       } else if (currentMediaType === 'local' && localMediaPlayer) {
         state = localMediaPlayer.paused ? 2 : 1; // 1 = playing, 2 = paused
         time = localMediaPlayer.currentTime;
-        duration = localMediaPlayer.duration;
+        totalDuration = localMediaPlayer.duration;
       }
       
       if (state !== undefined && time !== undefined) {
         socket.emit('media-control', {
-          room: currentRoom,
+          room: currentMediaRoom,
           type: 'sync',
           mediaType: currentMediaType,
           state: state,
           time: time,
-          duration: duration
+          duration: totalDuration
         });
       }
     }
@@ -1060,49 +1329,16 @@ function stopMediaSync() {
   }
 }
 
-// Handle incoming media controls
-socket.on('media-control', (data) => {
-  if (data.room !== currentRoom) return;
-  
-  if (data.type === 'sync' && !isHostControllingMedia) {
-    if (data.mediaType === 'youtube' && youtubePlayerObj) {
-      // Sync YouTube player
-      const timeDiff = Math.abs(youtubePlayerObj.getCurrentTime() - data.time);
-      if (timeDiff > 2) { // If more than 2 seconds difference, sync
-        youtubePlayerObj.seekTo(data.time, true);
-      }
-      
-      if (data.state === 1 && youtubePlayerObj.getPlayerState() !== YT.PlayerState.PLAYING) {
-        youtubePlayerObj.playVideo();
-      } else if (data.state === 2 && youtubePlayerObj.getPlayerState() !== YT.PlayerState.PAUSED) {
-        youtubePlayerObj.pauseVideo();
-      }
-    } else if (data.mediaType === 'local' && localMediaPlayer) {
-      // Sync local media player
-      const timeDiff = Math.abs(localMediaPlayer.currentTime - data.time);
-      if (timeDiff > 2) { // If more than 2 seconds difference, sync
-        localMediaPlayer.currentTime = data.time;
-      }
-      
-      if (data.state === 1 && localMediaPlayer.paused) {
-        localMediaPlayer.play();
-      } else if (data.state === 2 && !localMediaPlayer.paused) {
-        localMediaPlayer.pause();
-      }
-    }
-  }
-});
-
 // Media chat functionality
 function sendMediaChatMessage() {
   const message = mediaChatInput.value.trim();
-  if (!message) return;
+  if (!message || !currentMediaRoom) return;
   
-  addMediaChatMessage(myDisplayName, message, 'outgoing');
+  addMediaChatMessage(mediaDisplayNameValue, message, 'outgoing');
   socket.emit('media-chat-message', {
-    room: currentRoom,
+    room: currentMediaRoom,
     message: message,
-    userName: myDisplayName
+    userName: mediaDisplayNameValue
   });
   mediaChatInput.value = '';
 }
