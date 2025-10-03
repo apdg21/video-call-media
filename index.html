@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+'<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -85,7 +85,7 @@
   </main>
 
 <script>
-// Use relative path for socket.io - it will automatically connect to the same server
+// Use relative path for socket.io
 const socket = io();
 
 // DOM Elements
@@ -124,27 +124,26 @@ function updateConnectionStatus(status) {
 async function initMedia() {
   try {
     myStream = await navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 1280 },
-        height: { ideal: 720 } 
-      }, 
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
       audio: true 
     });
-    
+    console.log('Media stream tracks:', myStream.getTracks());
     myDisplayName = displayNameInput.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
     userDisplayNames[socket.id] = myDisplayName;
-    
     addVideoStream(myStream, myDisplayName, 'local', socket.id);
-    
-    // Enable controls
     [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => b.disabled = false);
     toggleVideoBtn.classList.add('bg-green-600');
     toggleAudioBtn.classList.add('bg-green-600');
-    
     return true;
   } catch (err) {
     console.error('Media error', err);
-    alert('Could not access camera/microphone. Please check permissions.');
+    let message = 'Could not access camera/microphone. Please check permissions.';
+    if (err.name === 'NotAllowedError') {
+      message = 'Camera/microphone access denied. Please allow access in your browser settings.';
+    } else if (err.name === 'NotFoundError') {
+      message = 'No camera or microphone found. Please ensure a camera is connected.';
+    }
+    alert(message);
     return false;
   }
 }
@@ -152,12 +151,11 @@ async function initMedia() {
 // Add video stream to grid
 function addVideoStream(stream, userName, type, userId) {
   const idKey = type === 'local' ? 'local' : userId;
-  
-  // Remove existing video if any
   removeVideoStream(idKey);
   
   const container = document.createElement('div');
   container.className = 'relative bg-black rounded-lg overflow-hidden video-container';
+  container.style.display = 'block';
   container.id = `video-${idKey}`;
   
   const video = document.createElement('video');
@@ -167,7 +165,7 @@ function addVideoStream(stream, userName, type, userId) {
   video.muted = (type === 'local');
   
   if (type === 'local') {
-    video.style.transform = 'scaleX(-1)'; // Mirror for self-view
+    video.style.transform = 'scaleX(-1)';
   } else {
     video.classList.add('remote-video');
   }
@@ -176,14 +174,16 @@ function addVideoStream(stream, userName, type, userId) {
   
   video.onloadedmetadata = () => {
     console.log(`✅ Video metadata loaded for ${userName}`);
-    video.play().catch(err => console.error('Play failed:', err));
+    video.play().catch(err => {
+      console.error('Play failed:', err);
+      addChatMessage('System', `Failed to play video for ${userName}: ${err.message}`, 'incoming');
+    });
   };
   
   const label = document.createElement('div');
   label.className = 'absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm';
   label.textContent = userName + (type === 'local' ? ' (You)' : '');
   
-  // Add status indicator
   const status = document.createElement('div');
   status.className = 'absolute top-2 right-2 flex gap-1';
   status.innerHTML = `
@@ -196,7 +196,6 @@ function addVideoStream(stream, userName, type, userId) {
   container.appendChild(status);
   videoGrid.appendChild(container);
   
-  // Remove placeholder if it exists
   const placeholder = videoGrid.querySelector('.text-center');
   if (placeholder) placeholder.remove();
   
@@ -220,34 +219,36 @@ function createPeerConnection(userId) {
       { urls: 'stun:stun2.l.google.com:19302' },
       { urls: 'stun:stun3.l.google.com:19302' },
       { urls: 'stun:stun4.l.google.com:19302' },
-      // Additional STUN servers for better connectivity
       { urls: 'stun:stun.voipbuster.com:3478' },
       { urls: 'stun:stun.voipstunt.com:3478' }
-    ],
-    });
+      // Add TURN server here if available
+    ]
+  });
 
-  // Add local tracks to the connection
   if (myStream) {
     myStream.getTracks().forEach(track => {
+      console.log(`Adding track ${track.kind} to peer connection for ${userId}`);
       peerConnection.addTrack(track, myStream);
     });
   }
 
-  // Handle incoming tracks
   peerConnection.ontrack = (event) => {
     console.log(`📹 Received remote track from ${userId}`, event.streams);
-    
     if (event.streams && event.streams[0]) {
       const remoteStream = event.streams[0];
-      
-      setTimeout(() => {
-        const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
-        addVideoStream(remoteStream, displayName, 'remote', userId);
-      }, 100);
+      console.log('Tracks in stream:', remoteStream.getTracks());
+      const videoTracks = remoteStream.getVideoTracks();
+      if (videoTracks.length === 0) {
+        console.warn(`No video tracks in stream from ${userId}`);
+        addChatMessage('System', `${userDisplayNames[userId] || 'User'} has no video stream available`, 'incoming');
+      }
+      const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
+      addVideoStream(remoteStream, displayName, 'remote', userId);
+    } else {
+      console.warn('No streams received for user:', userId);
     }
   };
 
-  // ICE candidate handling
   peerConnection.onicecandidate = (event) => {
     if (event.candidate && currentRoom) {
       socket.emit('ice-candidate', {
@@ -258,13 +259,20 @@ function createPeerConnection(userId) {
     }
   };
 
-  // Connection state monitoring
   peerConnection.onconnectionstatechange = () => {
     console.log(`🔗 Peer ${userId} connection state:`, peerConnection.connectionState);
+    if (peerConnection.connectionState === 'failed') {
+      console.error(`Connection failed for ${userId}`);
+      addChatMessage('System', `Failed to connect to ${userDisplayNames[userId] || 'User'}`, 'incoming');
+    }
   };
 
   peerConnection.oniceconnectionstatechange = () => {
     console.log(`❄️ Peer ${userId} ICE state:`, peerConnection.iceConnectionState);
+    if (peerConnection.iceConnectionState === 'failed') {
+      console.error(`ICE connection failed for ${userId}`);
+      peerConnection.restartIce();
+    }
   };
 
   return peerConnection;
@@ -274,19 +282,15 @@ function createPeerConnection(userId) {
 async function createAndSendOffer(userId) {
   try {
     console.log(`📤 Creating offer for ${userId}`);
-    
     const peerConnection = createPeerConnection(userId);
     peers[userId] = peerConnection;
-
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-
     socket.emit('offer', {
       offer: offer,
       to: userId,
       room: currentRoom
     });
-
     console.log(`✅ Offer sent to ${userId}`);
   } catch (error) {
     console.error('Error creating offer:', error);
@@ -318,16 +322,13 @@ leaveBtn.addEventListener('click', () => {
     socket.emit('leave-room', currentRoom);
   }
   
-  // Close all peer connections
   Object.values(peers).forEach(peer => peer.close());
   Object.keys(peers).forEach(key => delete peers[key]);
   
-  // Stop local stream
   if (myStream) {
     myStream.getTracks().forEach(track => track.stop());
   }
   
-  // Reset UI
   videoGrid.innerHTML = `
     <div class="text-center text-gray-500 py-8 col-span-2">
       <i class="fas fa-video text-4xl mb-4"></i>
@@ -337,7 +338,6 @@ leaveBtn.addEventListener('click', () => {
   
   chatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
   
-  // Disable controls
   [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
     b.disabled = true;
     if (b !== leaveBtn) {
@@ -346,7 +346,6 @@ leaveBtn.addEventListener('click', () => {
     }
   });
   
-  // Enable join controls
   joinBtn.disabled = false;
   roomNameInput.disabled = false;
   displayNameInput.disabled = false;
@@ -359,8 +358,6 @@ leaveBtn.addEventListener('click', () => {
 socket.on('room-joined', (users) => {
   console.log('👥 Room joined, existing users:', users);
   updateConnectionStatus('connected');
-  
-  // Create offers for all existing users
   users.forEach(user => {
     if (user.id !== socket.id) {
       userDisplayNames[user.id] = user.displayName;
@@ -376,22 +373,22 @@ socket.on('user-connected', (userData) => {
 });
 
 socket.on('offer', async (data) => {
-  console.log('📨 Received offer from', data.from);
-  
+  if (data.room !== currentRoom) {
+    console.warn(`Received offer for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('📨 Received offer from', data.from, data.offer);
   try {
     const peerConnection = createPeerConnection(data.from);
     peers[data.from] = peerConnection;
-    
     await peerConnection.setRemoteDescription(data.offer);
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-    
     socket.emit('answer', {
       answer: answer,
       to: data.from,
       room: currentRoom
     });
-    
     console.log('📤 Sent answer to', data.from);
   } catch (error) {
     console.error('Error handling offer:', error);
@@ -399,8 +396,11 @@ socket.on('offer', async (data) => {
 });
 
 socket.on('answer', async (data) => {
-  console.log('📨 Received answer from', data.from);
-  
+  if (data.room !== currentRoom) {
+    console.warn(`Received answer for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('📨 Received answer from', data.from, data.answer);
   try {
     if (peers[data.from]) {
       await peers[data.from].setRemoteDescription(data.answer);
@@ -412,8 +412,11 @@ socket.on('answer', async (data) => {
 });
 
 socket.on('ice-candidate', async (data) => {
-  console.log('❄️ Received ICE candidate from', data.from);
-  
+  if (data.room !== currentRoom) {
+    console.warn(`Received ICE candidate for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('❄️ Received ICE candidate from', data.from, data.candidate);
   try {
     if (peers[data.from] && data.candidate) {
       await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
@@ -426,35 +429,47 @@ socket.on('ice-candidate', async (data) => {
 
 socket.on('user-disconnected', (userId) => {
   console.log('❌ User disconnected:', userId);
-  
   if (peers[userId]) {
     peers[userId].close();
     delete peers[userId];
   }
-  
   removeVideoStream(userId);
   delete userDisplayNames[userId];
+});
+
+socket.on('user-media-update', (data) => {
+  const remoteVideo = document.getElementById(`video-${data.userId}`);
+  if (remoteVideo) {
+    const videoIndicator = remoteVideo.querySelector('.absolute.top-2.right-2 span:first-child');
+    const audioIndicator = remoteVideo.querySelector('.absolute.top-2.right-2 span:last-child');
+    if (videoIndicator) {
+      videoIndicator.className = `h-3 w-3 rounded-full ${data.video ? 'bg-green-500' : 'bg-red-500'}`;
+    }
+    if (audioIndicator) {
+      audioIndicator.className = `h-3 w-3 rounded-full ${data.audio ? 'bg-green-500' : 'bg-red-500'}`;
+    }
+    if (!data.video) {
+      addChatMessage('System', `${userDisplayNames[data.userId] || 'User'} has turned off their video`, 'incoming');
+    }
+  }
 });
 
 // Chat functionality
 function sendMessage() {
   const message = chatInput.value.trim();
   if (!message || !currentRoom) return;
-  
   addChatMessage(myDisplayName, message, 'outgoing');
   socket.emit('chat-message', {
     room: currentRoom,
     message: message,
     userName: myDisplayName
   });
-  
   chatInput.value = '';
 }
 
 function addChatMessage(user, message, type = 'incoming') {
   const messageElement = document.createElement('div');
   messageElement.className = `mb-3 ${type === 'outgoing' ? 'text-right' : ''}`;
-  
   messageElement.innerHTML = `
     <div class="inline-block p-3 rounded-lg max-w-xs ${
       type === 'outgoing' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
@@ -465,11 +480,8 @@ function addChatMessage(user, message, type = 'incoming') {
       <div class="text-sm">${message}</div>
     </div>
   `;
-  
-  // Remove placeholder if it exists
   const placeholder = chatMessages.querySelector('.text-center');
   if (placeholder) placeholder.remove();
-  
   chatMessages.appendChild(messageElement);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -486,16 +498,12 @@ socket.on('chat-message', (data) => {
 // Media control handlers
 toggleVideoBtn.addEventListener('click', () => {
   if (!myStream) return;
-  
   const videoTrack = myStream.getVideoTracks()[0];
   if (videoTrack) {
     isVideoOn = !isVideoOn;
     videoTrack.enabled = isVideoOn;
-    
     toggleVideoBtn.classList.toggle('bg-green-600', isVideoOn);
     toggleVideoBtn.classList.toggle('bg-gray-700', !isVideoOn);
-    
-    // Update local video status indicator
     const localVideo = document.getElementById('video-local');
     if (localVideo) {
       const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:first-child');
@@ -503,21 +511,22 @@ toggleVideoBtn.addEventListener('click', () => {
         statusIndicator.className = `h-3 w-3 rounded-full ${isVideoOn ? 'bg-green-500' : 'bg-red-500'}`;
       }
     }
+    socket.emit('user-media-update', {
+      room: currentRoom,
+      video: isVideoOn,
+      audio: isAudioOn
+    });
   }
 });
 
 toggleAudioBtn.addEventListener('click', () => {
   if (!myStream) return;
-  
   const audioTrack = myStream.getAudioTracks()[0];
   if (audioTrack) {
     isAudioOn = !isAudioOn;
     audioTrack.enabled = isAudioOn;
-    
     toggleAudioBtn.classList.toggle('bg-green-600', isAudioOn);
     toggleAudioBtn.classList.toggle('bg-gray-700', !isAudioOn);
-    
-    // Update local audio status indicator
     const localVideo = document.getElementById('video-local');
     if (localVideo) {
       const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:last-child');
@@ -525,6 +534,11 @@ toggleAudioBtn.addEventListener('click', () => {
         statusIndicator.className = `h-3 w-3 rounded-full ${isAudioOn ? 'bg-green-500' : 'bg-red-500'}`;
       }
     }
+    socket.emit('user-media-update', {
+      room: currentRoom,
+      video: isVideoOn,
+      audio: isAudioOn
+    });
   }
 });
 
