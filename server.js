@@ -47,6 +47,7 @@ io.on('connection', (socket) => {
   socket.on('offer', (data) => {
     if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid offer: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send offer: user ${data.to} not found in room ${data.room}` });
       return;
     }
     socket.to(data.to).emit('offer', {
@@ -59,6 +60,7 @@ io.on('connection', (socket) => {
   socket.on('answer', (data) => {
     if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid answer: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send answer: user ${data.to} not found in room ${data.room}` });
       return;
     }
     socket.to(data.to).emit('answer', {
@@ -71,6 +73,7 @@ io.on('connection', (socket) => {
   socket.on('ice-candidate', (data) => {
     if (!rooms.has(data.room) || !rooms.get(data.room).has(data.to)) {
       console.warn(`Invalid ICE candidate: room ${data.room} or user ${data.to} not found`);
+      socket.emit('error', { message: `Cannot send ICE candidate: user ${data.to} not found in room ${data.room}` });
       return;
     }
     socket.to(data.to).emit('ice-candidate', {
