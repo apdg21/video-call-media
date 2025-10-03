@@ -126,105 +126,142 @@
   </div>
 
   <!-- Media Sharing Tab -->
-  <div id="mediaSharingContent" class="tab-content">
-    <main class="container mx-auto p-4">
-      <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
-        <h2 class="text-xl font-bold mb-4 flex items-center">
-          <i class="fas fa-film mr-2 text-blue-400"></i> Media Sharing
-        </h2>
-        <p class="text-gray-300 mb-4">Watch videos and listen to music together with your family.</p>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <!-- YouTube Video Section -->
-          <div class="bg-gray-700 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-3 flex items-center">
-              <i class="fab fa-youtube mr-2 text-red-500"></i> YouTube Video
-            </h3>
-            <div class="mb-3">
-              <input id="youtubeUrl" placeholder="Paste YouTube URL here" 
-                     class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
-              <button id="loadYoutubeBtn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg">
-                <i class="fab fa-youtube mr-2"></i> Load YouTube Video
-              </button>
-            </div>
-            <div id="youtubePlayer" class="media-player">
-              <div class="text-center text-gray-400 py-8">
-                <i class="fab fa-youtube text-4xl mb-4"></i>
-                <p>Enter a YouTube URL to load a video</p>
-              </div>
-            </div>
+<div id="mediaSharingContent" class="tab-content">
+  <main class="container mx-auto p-4">
+    <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
+      <h2 class="text-xl font-bold mb-4 flex items-center">
+        <i class="fas fa-film mr-2 text-blue-400"></i> Media Sharing
+      </h2>
+      
+      <!-- Media Room Connection -->
+      <div class="bg-gray-700 p-4 rounded-lg mb-6">
+        <h3 class="text-lg font-semibold mb-3 flex items-center">
+          <i class="fas fa-door-open mr-2 text-green-500"></i> Media Room
+        </h3>
+        <div class="flex flex-col md:flex-row gap-4 mb-4">
+          <input id="mediaRoomName" placeholder="Media room name" value="family-media-room"
+                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
+          <input id="mediaDisplayName" placeholder="Your name for media" value="User"
+                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-lg">
+          <button id="joinMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg">
+            <i class="fas fa-play mr-2"></i> Join Media Room
+          </button>
+          <button id="leaveMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-stop mr-2"></i> Leave
+          </button>
+        </div>
+        <div id="mediaRoomStatus" class="flex items-center text-sm">
+          <span class="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
+          <span>Not connected to media room</span>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- YouTube Video Section -->
+        <div class="bg-gray-700 p-4 rounded-lg">
+          <h3 class="text-lg font-semibold mb-3 flex items-center">
+            <i class="fab fa-youtube mr-2 text-red-500"></i> YouTube Video
+          </h3>
+          <div class="mb-3">
+            <input id="youtubeUrl" placeholder="Paste YouTube URL here" 
+                   class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
+            <button id="loadYoutubeBtn" class="w-full bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg">
+              <i class="fab fa-youtube mr-2"></i> Load YouTube Video
+            </button>
           </div>
-          
-          <!-- Local File Section -->
-          <div class="bg-gray-700 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-3 flex items-center">
-              <i class="fas fa-file-video mr-2 text-green-500"></i> Local Media File
-            </h3>
-            <div class="mb-3">
-              <input type="file" id="localFileInput" accept="video/*,audio/*" 
-                     class="w-full p-2 bg-gray-600 border border-gray-500 rounded-lg mb-2">
-              <button id="playLocalBtn" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg" disabled>
-                <i class="fas fa-play mr-2"></i> Play Local File
-              </button>
-            </div>
-            <div id="localFilePlayer" class="media-player">
-              <div class="text-center text-gray-400 py-8">
-                <i class="fas fa-file-video text-4xl mb-4"></i>
-                <p>Select a video or audio file to play</p>
-              </div>
+          <div id="youtubePlayer" class="media-player">
+            <div class="text-center text-gray-400 py-8">
+              <i class="fab fa-youtube text-4xl mb-4"></i>
+              <p>Enter a YouTube URL to load a video</p>
             </div>
           </div>
         </div>
         
-        <!-- Media Controls -->
-        <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+        <!-- Local File Section -->
+        <div class="bg-gray-700 p-4 rounded-lg">
           <h3 class="text-lg font-semibold mb-3 flex items-center">
-            <i class="fas fa-sliders-h mr-2 text-blue-400"></i> Media Controls
+            <i class="fas fa-file-video mr-2 text-green-500"></i> Local Media File
           </h3>
-          <div class="flex flex-wrap gap-4">
-            <button id="playMediaBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg" disabled>
-              <i class="fas fa-play mr-2"></i> Play
-            </button>
-            <button id="pauseMediaBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white p-3 rounded-lg" disabled>
-              <i class="fas fa-pause mr-2"></i> Pause
-            </button>
-            <button id="stopMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
-              <i class="fas fa-stop mr-2"></i> Stop
-            </button>
-            <button id="syncMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg" disabled>
-              <i class="fas fa-sync mr-2"></i> Sync with Room
+          <div class="mb-3">
+            <input type="file" id="localFileInput" accept="video/*,audio/*" 
+                   class="w-full p-2 bg-gray-600 border border-gray-500 rounded-lg mb-2">
+            <button id="playLocalBtn" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg" disabled>
+              <i class="fas fa-play mr-2"></i> Play Local File
             </button>
           </div>
-          <div class="mt-4">
-            <label for="mediaProgress" class="block text-sm font-medium mb-2">Progress</label>
-            <input type="range" id="mediaProgress" min="0" max="100" value="0" 
-                   class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
-          </div>
-          <div class="mt-2 flex justify-between text-sm text-gray-400">
-            <span id="currentTime">0:00</span>
-            <span id="duration">0:00</span>
-          </div>
-        </div>
-        
-        <!-- Media Chat -->
-        <div class="mt-6 bg-gray-700 p-4 rounded-lg">
-          <h3 class="text-lg font-semibold mb-3 flex items-center">
-            <i class="fas fa-comments mr-2 text-blue-400"></i> Media Chat
-          </h3>
-          <div id="mediaChatMessages" class="h-40 overflow-y-auto mb-3 p-3 bg-gray-800 rounded-lg">
-            <div class="text-center text-gray-400 py-4">No media chat messages yet.</div>
-          </div>
-          <div class="flex">
-            <input id="mediaChatInput" placeholder="Type about the media..." 
-                   class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-l-lg">
-            <button id="sendMediaChatBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg">
-              <i class="fas fa-paper-plane"></i>
-            </button>
+          <div id="localFilePlayer" class="media-player">
+            <div class="text-center text-gray-400 py-8">
+              <i class="fas fa-file-video text-4xl mb-4"></i>
+              <p>Select a video or audio file to play</p>
+            </div>
           </div>
         </div>
       </div>
-    </main>
-  </div>
+      
+      <!-- Media Controls -->
+      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+        <h3 class="text-lg font-semibold mb-3 flex items-center">
+          <i class="fas fa-sliders-h mr-2 text-blue-400"></i> Media Controls
+        </h3>
+        <div class="flex flex-wrap gap-4">
+          <button id="playMediaBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-play mr-2"></i> Play
+          </button>
+          <button id="pauseMediaBtn" class="bg-yellow-600 hover:bg-yellow-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-pause mr-2"></i> Pause
+          </button>
+          <button id="stopMediaBtn" class="bg-red-600 hover:bg-red-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-stop mr-2"></i> Stop
+          </button>
+          <button id="syncMediaBtn" class="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-sync mr-2"></i> Sync with Room
+          </button>
+          <button id="becomeHostBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg" disabled>
+            <i class="fas fa-crown mr-2"></i> Become Host
+          </button>
+        </div>
+        <div class="mt-4">
+          <label for="mediaProgress" class="block text-sm font-medium mb-2">Progress</label>
+          <input type="range" id="mediaProgress" min="0" max="100" value="0" 
+                 class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer" disabled>
+        </div>
+        <div class="mt-2 flex justify-between text-sm text-gray-400">
+          <span id="currentTime">0:00</span>
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+      
+      <!-- Media Participants -->
+      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+        <h3 class="text-lg font-semibold mb-3 flex items-center">
+          <i class="fas fa-users mr-2 text-blue-400"></i> Media Room Participants
+        </h3>
+        <div id="mediaParticipants" class="flex flex-wrap gap-2">
+          <div class="text-center text-gray-400 py-4 w-full">
+            <p>No participants in media room</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Media Chat -->
+      <div class="mt-6 bg-gray-700 p-4 rounded-lg">
+        <h3 class="text-lg font-semibold mb-3 flex items-center">
+          <i class="fas fa-comments mr-2 text-blue-400"></i> Media Chat
+        </h3>
+        <div id="mediaChatMessages" class="h-40 overflow-y-auto mb-3 p-3 bg-gray-800 rounded-lg">
+          <div class="text-center text-gray-400 py-4">No media chat messages yet.</div>
+        </div>
+        <div class="flex">
+          <input id="mediaChatInput" placeholder="Type about the media..." disabled
+                 class="flex-1 p-3 bg-gray-600 border border-gray-500 rounded-l-lg">
+          <button id="sendMediaChatBtn" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-r-lg" disabled>
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <!-- YouTube IFrame API -->
