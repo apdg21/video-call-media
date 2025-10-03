@@ -239,8 +239,11 @@ function createPeerConnection(userId) {
     
     if (event.streams && event.streams[0]) {
       const remoteStream = event.streams[0];
-      const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
-      addVideoStream(remoteStream, displayName, 'remote', userId);
+      
+      setTimeout(() => {
+        const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
+        addVideoStream(remoteStream, displayName, 'remote', userId);
+      }, 100);
     }
   };
 
