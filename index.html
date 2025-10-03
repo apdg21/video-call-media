@@ -56,15 +56,21 @@
       padding: 0.5rem 1rem;
       cursor: pointer;
       border-bottom: 2px solid transparent;
+      color: #9CA3AF;
     }
     .media-source-tab.active {
       border-bottom-color: #3B82F6;
       color: #3B82F6;
     }
+    .media-source-content {
+      display: none;
+    }
+    .media-source-content.active {
+      display: block;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-white">
-  <!-- [Keep the same header and tab navigation as before] -->
   <header class="bg-gray-800 p-4 shadow-md flex justify-between">
     <h1 class="text-2xl font-bold flex items-center">
       <i class="fas fa-users mr-2 text-blue-400"></i> Family Video Call
@@ -87,7 +93,7 @@
     </div>
   </div>
 
-  <!-- Video Call Tab (Keep exactly the same as before) -->
+  <!-- Video Call Tab -->
   <div id="videoCallContent" class="tab-content active">
     <main class="container mx-auto p-4 flex flex-col lg:flex-row gap-6">
       <div class="lg:w-3/4">
@@ -140,7 +146,7 @@
     </main>
   </div>
 
-  <!-- Media Sharing Tab - UPDATED -->
+  <!-- Media Sharing Tab -->
   <div id="mediaSharingContent" class="tab-content">
     <main class="container mx-auto p-4">
       <div class="bg-gray-800 p-4 rounded-lg shadow-lg mb-6">
@@ -171,11 +177,13 @@
           </div>
         </div>
         
-        <!-- Media Source Tabs -->
+        <!-- Media Source -->
         <div class="bg-gray-700 p-4 rounded-lg mb-6">
           <h3 class="text-lg font-semibold mb-3 flex items-center">
             <i class="fas fa-video mr-2 text-blue-400"></i> Media Source
           </h3>
+          
+          <!-- Media Source Tabs -->
           <div class="media-source-tabs">
             <div class="media-source-tab active" data-source="youtube">
               <i class="fab fa-youtube mr-2"></i>YouTube
@@ -189,7 +197,7 @@
           </div>
           
           <!-- YouTube Source -->
-          <div id="youtube-source" class="media-source-content">
+          <div id="youtube-source" class="media-source-content active">
             <div class="mb-3">
               <input id="youtubeUrl" placeholder="Paste YouTube URL here" 
                      class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
@@ -206,7 +214,7 @@
           </div>
           
           <!-- Direct URL Source -->
-          <div id="direct-url-source" class="media-source-content" style="display: none;">
+          <div id="direct-url-source" class="media-source-content">
             <div class="mb-3">
               <input id="directVideoUrl" placeholder="Paste direct video URL (MP4, WebM, etc.)" 
                      class="w-full p-3 bg-gray-600 border border-gray-500 rounded-lg mb-2">
@@ -226,7 +234,7 @@
           </div>
           
           <!-- Local File Source -->
-          <div id="local-file-source" class="media-source-content" style="display: none;">
+          <div id="local-file-source" class="media-source-content">
             <div class="mb-3">
               <input type="file" id="localFileInput" accept="video/*,audio/*" 
                      class="w-full p-2 bg-gray-600 border border-gray-500 rounded-lg mb-2">
@@ -316,19 +324,94 @@
 <!-- YouTube IFrame API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-// [Keep all the existing video call JavaScript code exactly as before]
+// Use relative path for socket.io
+const socket = io(window.location.origin);
 
-// ==================== MEDIA SHARING FUNCTIONALITY ====================
+// DOM Elements
+const videoGrid = document.getElementById('videoGrid');
+const roomNameInput = document.getElementById('roomName');
+const displayNameInput = document.getElementById('displayName');
+const joinBtn = document.getElementById('joinBtn');
+const toggleVideoBtn = document.getElementById('toggleVideoBtn');
+const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+const leaveBtn = document.getElementById('leaveBtn');
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const connectionStatus = document.getElementById('connectionStatus');
 
-// Add new DOM elements for direct URL support
+// Tab Elements
+const videoCallTab = document.getElementById('videoCallTab');
+const mediaSharingTab = document.getElementById('mediaSharingTab');
+const videoCallContent = document.getElementById('videoCallContent');
+const mediaSharingContent = document.getElementById('mediaSharingContent');
+
+// Media Sharing Elements
+const mediaRoomName = document.getElementById('mediaRoomName');
+const mediaDisplayName = document.getElementById('mediaDisplayName');
+const joinMediaBtn = document.getElementById('joinMediaBtn');
+const leaveMediaBtn = document.getElementById('leaveMediaBtn');
+const mediaRoomStatus = document.getElementById('mediaRoomStatus');
+const mediaParticipants = document.getElementById('mediaParticipants');
+const youtubeUrl = document.getElementById('youtubeUrl');
+const loadYoutubeBtn = document.getElementById('loadYoutubeBtn');
+const youtubePlayer = document.getElementById('youtubePlayer');
+const localFileInput = document.getElementById('localFileInput');
+const playLocalBtn = document.getElementById('playLocalBtn');
+const localFilePlayer = document.getElementById('localFilePlayer');
+const playMediaBtn = document.getElementById('playMediaBtn');
+const pauseMediaBtn = document.getElementById('pauseMediaBtn');
+const stopMediaBtn = document.getElementById('stopMediaBtn');
+const syncMediaBtn = document.getElementById('syncMediaBtn');
+const becomeHostBtn = document.getElementById('becomeHostBtn');
+const mediaProgress = document.getElementById('mediaProgress');
+const currentTime = document.getElementById('currentTime');
+const duration = document.getElementById('duration');
+const mediaChatMessages = document.getElementById('mediaChatMessages');
+const mediaChatInput = document.getElementById('mediaChatInput');
+const sendMediaChatBtn = document.getElementById('sendMediaChatBtn');
+
+// Media Source Elements
 const mediaSourceTabs = document.querySelectorAll('.media-source-tab');
 const mediaSourceContents = document.querySelectorAll('.media-source-content');
 const directVideoUrl = document.getElementById('directVideoUrl');
 const loadDirectUrlBtn = document.getElementById('loadDirectUrlBtn');
 const directUrlPlayer = document.getElementById('directUrlPlayer');
 
-// Media Sharing State - Add new variable
+// State variables
+let myStream = null;
+let isVideoOn = true;
+let isAudioOn = true;
+let currentRoom = null;
+let myDisplayName = 'User';
+const peers = {};
+const userDisplayNames = {};
+
+// Media Sharing State
+let youtubePlayerObj = null;
+let localMediaPlayer = null;
 let directUrlMediaPlayer = null;
+let currentMediaType = null; // 'youtube', 'direct-url', 'local'
+let isMediaHost = false;
+let currentMediaRoom = null;
+let mediaSyncInterval = null;
+let mediaDisplayNameValue = 'User';
+const mediaRoomUsers = new Map();
+
+// Tab switching
+videoCallTab.addEventListener('click', () => {
+  videoCallTab.classList.add('active');
+  mediaSharingTab.classList.remove('active');
+  videoCallContent.classList.add('active');
+  mediaSharingContent.classList.remove('active');
+});
+
+mediaSharingTab.addEventListener('click', () => {
+  mediaSharingTab.classList.add('active');
+  videoCallTab.classList.remove('active');
+  mediaSharingContent.classList.add('active');
+  videoCallContent.classList.remove('active');
+});
 
 // Media Source Tab Switching
 mediaSourceTabs.forEach(tab => {
@@ -341,13 +424,763 @@ mediaSourceTabs.forEach(tab => {
     
     // Show corresponding content
     mediaSourceContents.forEach(content => {
-      content.style.display = 'none';
+      content.classList.remove('active');
     });
-    document.getElementById(`${source}-source`).style.display = 'block';
+    document.getElementById(`${source}-source`).classList.add('active');
   });
 });
 
-// [Keep all existing media room connection code...]
+// Update connection status
+function updateConnectionStatus(status) {
+  const indicator = connectionStatus.querySelector('.h-3');
+  const text = connectionStatus.querySelector('span:last-child');
+  indicator.className = 'h-3 w-3 rounded-full mr-2 ' +
+    (status === 'connected' ? 'status-connected' : 
+     status === 'connecting' ? 'status-connecting pulse-connecting' : 'status-disconnected');
+  text.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// Initialize media
+async function initMedia() {
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia({ 
+      video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+      audio: true 
+    });
+    console.log('Media stream tracks:', myStream.getTracks());
+    myDisplayName = displayNameInput.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
+    userDisplayNames[socket.id] = myDisplayName;
+    addVideoStream(myStream, myDisplayName, 'local', socket.id);
+    [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => b.disabled = false);
+    toggleVideoBtn.classList.add('bg-green-600');
+    toggleAudioBtn.classList.add('bg-green-600');
+    return true;
+  } catch (err) {
+    console.error('Media error', err);
+    let message = 'Could not access camera/microphone. Please check permissions.';
+    if (err.name === 'NotAllowedError') {
+      message = 'Camera/microphone access denied. Please allow access in your browser settings.';
+    } else if (err.name === 'NotFoundError') {
+      message = 'No camera or microphone found. Please ensure a camera is connected.';
+    }
+    alert(message);
+    return false;
+  }
+}
+
+// Add video stream to grid
+function addVideoStream(stream, userName, type, userId) {
+  const idKey = type === 'local' ? 'local' : userId;
+  removeVideoStream(idKey);
+  
+  const container = document.createElement('div');
+  container.className = 'relative bg-black rounded-lg overflow-hidden video-container';
+  container.style.display = 'block';
+  container.id = `video-${idKey}`;
+  
+  const video = document.createElement('video');
+  video.srcObject = stream;
+  video.autoplay = true;
+  video.playsInline = true;
+  video.muted = (type === 'local');
+  
+  if (type === 'local') {
+    video.style.transform = 'scaleX(-1)';
+  } else {
+    video.classList.add('remote-video');
+  }
+  
+  video.className = 'w-full h-full object-cover';
+  
+  video.onloadedmetadata = () => {
+    console.log(`✅ Video metadata loaded for ${userName}`);
+    video.play().catch(err => {
+      console.error('Play failed:', err);
+      addChatMessage('System', `Failed to play video for ${userName}: ${err.message}`, 'incoming');
+    });
+  };
+  
+  const label = document.createElement('div');
+  label.className = 'absolute bottom-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-sm';
+  label.textContent = userName + (type === 'local' ? ' (You)' : '');
+  
+  const status = document.createElement('div');
+  status.className = 'absolute top-2 right-2 flex gap-1';
+  status.innerHTML = `
+    <span class="h-3 w-3 rounded-full ${type === 'local' ? (isVideoOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
+    <span class="h-3 w-3 rounded-full ${type === 'local' ? (isAudioOn ? 'bg-green-500' : 'bg-red-500') : 'bg-green-500'}"></span>
+  `;
+  
+  container.appendChild(video);
+  container.appendChild(label);
+  container.appendChild(status);
+  videoGrid.appendChild(container);
+  
+  const placeholder = videoGrid.querySelector('.text-center');
+  if (placeholder) placeholder.remove();
+  
+  console.log(`✅ Added ${type} video stream for ${userName}`);
+}
+
+// Remove video stream
+function removeVideoStream(idKey) {
+  const el = document.getElementById(`video-${idKey}`);
+  if (el) el.remove();
+}
+
+// Create peer connection
+function createPeerConnection(userId) {
+  console.log(`🔗 Creating peer connection for ${userId}`);
+  
+  const peerConnection = new RTCPeerConnection({
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
+      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: 'stun:stun4.l.google.com:19302' }
+    ]
+  });
+
+  if (myStream) {
+    myStream.getTracks().forEach(track => {
+      console.log(`Adding track ${track.kind} to peer connection for ${userId}`);
+      peerConnection.addTrack(track, myStream);
+    });
+  }
+
+  peerConnection.ontrack = (event) => {
+    console.log(`📹 Received remote track from ${userId}`, event.streams);
+    if (event.streams && event.streams[0]) {
+      const remoteStream = event.streams[0];
+      const videoTracks = remoteStream.getVideoTracks();
+      console.log('Tracks in stream:', remoteStream.getTracks());
+      if (videoTracks.length === 0) {
+        console.warn(`No video tracks in stream from ${userId}`);
+        addChatMessage('System', `${userDisplayNames[userId] || 'User'} has no video stream available`, 'incoming');
+      }
+      const displayName = userDisplayNames[userId] || `User ${userId.substring(0, 6)}`;
+      addVideoStream(remoteStream, displayName, 'remote', userId);
+    } else {
+      console.warn('No streams received for user:', userId);
+    }
+  };
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate && currentRoom) {
+      socket.emit('ice-candidate', {
+        candidate: event.candidate,
+        to: userId,
+        room: currentRoom
+      });
+    }
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    console.log(`🔗 Peer ${userId} connection state:`, peerConnection.connectionState);
+    if (peerConnection.connectionState === 'failed') {
+      console.error(`Connection failed for ${userId}`);
+      addChatMessage('System', `Failed to connect to ${userDisplayNames[userId] || 'User'}`, 'incoming');
+    }
+  };
+
+  peerConnection.oniceconnectionstatechange = () => {
+    console.log(`❄️ Peer ${userId} ICE state:`, peerConnection.iceConnectionState);
+    if (peerConnection.iceConnectionState === 'failed') {
+      console.error(`ICE connection failed for ${userId}`);
+      peerConnection.restartIce();
+      createAndSendOffer(userId);
+    }
+  };
+
+  return peerConnection;
+}
+
+// Create and send offer
+async function createAndSendOffer(userId) {
+  try {
+    console.log(`📤 Creating offer for ${userId}`);
+    if (peers[userId]) {
+      console.log(`Peer connection already exists for ${userId}, closing it`);
+      peers[userId].close();
+      delete peers[userId];
+    }
+    const peerConnection = createPeerConnection(userId);
+    peers[userId] = peerConnection;
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('offer', {
+      offer: offer,
+      to: userId,
+      room: currentRoom
+    });
+    console.log(`✅ Offer sent to ${userId}`);
+  } catch (error) {
+    console.error('Error creating offer:', error);
+  }
+}
+
+// Join room
+joinBtn.addEventListener('click', async () => {
+  const room = roomNameInput.value.trim().toLowerCase();
+  if (!room) {
+    alert('Please enter a room name');
+    return;
+  }
+  
+  if (!await initMedia()) return;
+  
+  currentRoom = room;
+  updateConnectionStatus('connecting');
+  socket.emit('join-room', room, myDisplayName);
+  
+  joinBtn.disabled = true;
+  roomNameInput.disabled = true;
+  displayNameInput.disabled = true;
+});
+
+// Leave call
+leaveBtn.addEventListener('click', () => {
+  if (currentRoom) {
+    socket.emit('leave-room', currentRoom);
+  }
+  
+  Object.values(peers).forEach(peer => peer.close());
+  Object.keys(peers).forEach(key => delete peers[key]);
+  
+  if (myStream) {
+    myStream.getTracks().forEach(track => track.stop());
+  }
+  
+  videoGrid.innerHTML = `
+    <div class="text-center text-gray-500 py-8 col-span-2">
+      <i class="fas fa-video text-4xl mb-4"></i>
+      <p>Join a room to start video calling</p>
+    </div>
+  `;
+  
+  chatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No messages yet.</div>';
+  
+  [toggleVideoBtn, toggleAudioBtn, leaveBtn, chatInput, sendBtn].forEach(b => {
+    b.disabled = true;
+    if (b !== leaveBtn) {
+      b.classList.remove('bg-green-600');
+      b.classList.add('bg-gray-700');
+    }
+  });
+  
+  joinBtn.disabled = false;
+  roomNameInput.disabled = false;
+  displayNameInput.disabled = false;
+  
+  updateConnectionStatus('disconnected');
+  currentRoom = null;
+});
+
+// Socket event handlers
+socket.on('room-joined', (users) => {
+  console.log('👥 Room joined, existing users:', users);
+  updateConnectionStatus('connected');
+  users.forEach(user => {
+    if (user.id !== socket.id && !peers[user.id]) {
+      userDisplayNames[user.id] = user.displayName;
+      createAndSendOffer(user.id);
+    }
+  });
+});
+
+socket.on('user-connected', (userData) => {
+  console.log('👋 New user joined:', userData);
+  userDisplayNames[userData.id] = userData.displayName;
+  if (!peers[userData.id]) {
+    createAndSendOffer(userData.id);
+  } else {
+    console.log(`Peer connection already exists for ${userData.id}`);
+  }
+});
+
+socket.on('offer', async (data) => {
+  if (data.room !== currentRoom) {
+    console.warn(`Received offer for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('📨 Offer received:', { from: data.from, room: data.room, offer: data.offer });
+  try {
+    const peerConnection = createPeerConnection(data.from);
+    peers[data.from] = peerConnection;
+    await peerConnection.setRemoteDescription(data.offer);
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    socket.emit('answer', {
+      answer: answer,
+      to: data.from,
+      room: currentRoom
+    });
+    console.log('📤 Sent answer to', data.from);
+  } catch (error) {
+    console.error('Error handling offer:', error);
+  }
+});
+
+socket.on('answer', async (data) => {
+  if (data.room !== currentRoom) {
+    console.warn(`Received answer for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('📨 Answer received:', { from: data.from, room: data.room, answer: data.answer });
+  try {
+    if (peers[data.from]) {
+      if (peers[data.from].signalingState !== 'have-local-offer') {
+        console.warn(`Invalid signaling state for answer: ${peers[data.from].signalingState}`);
+        return;
+      }
+      await peers[data.from].setRemoteDescription(data.answer);
+      console.log('✅ Set remote description for', data.from);
+    }
+  } catch (error) {
+    console.error('Error handling answer:', error);
+  }
+});
+
+socket.on('ice-candidate', async (data) => {
+  if (data.room !== currentRoom) {
+    console.warn(`Received ICE candidate for wrong room: ${data.room}, expected: ${currentRoom}`);
+    return;
+  }
+  console.log('❄️ Received ICE candidate from', data.from, data.candidate);
+  try {
+    if (peers[data.from] && data.candidate) {
+      await peers[data.from].addIceCandidate(new RTCIceCandidate(data.candidate));
+      console.log('✅ Added ICE candidate for', data.from);
+    }
+  } catch (error) {
+    console.error('Error adding ICE candidate:', error);
+  }
+});
+
+socket.on('user-disconnected', (userId) => {
+  console.log('❌ User disconnected:', userId);
+  if (peers[userId]) {
+    peers[userId].close();
+    delete peers[userId];
+  }
+  removeVideoStream(userId);
+  delete userDisplayNames[userId];
+});
+
+socket.on('user-media-update', (data) => {
+  const remoteVideo = document.getElementById(`video-${data.userId}`);
+  if (remoteVideo) {
+    const videoIndicator = remoteVideo.querySelector('.absolute.top-2.right-2 span:first-child');
+    const audioIndicator = remoteVideo.querySelector('.absolute.top-2.right-2 span:last-child');
+    if (videoIndicator) {
+      videoIndicator.className = `h-3 w-3 rounded-full ${data.video ? 'bg-green-500' : 'bg-red-500'}`;
+    }
+    if (audioIndicator) {
+      audioIndicator.className = `h-3 w-3 rounded-full ${data.audio ? 'bg-green-500' : 'bg-red-500'}`;
+    }
+    if (!data.video) {
+      addChatMessage('System', `${userDisplayNames[data.userId] || 'User'} has turned off their video`, 'incoming');
+    }
+  }
+});
+
+socket.on('error', (data) => {
+  console.error('Server error:', data.message);
+  addChatMessage('System', `Error: ${data.message}`, 'incoming');
+});
+
+// Chat functionality
+function sendMessage() {
+  const message = chatInput.value.trim();
+  if (!message || !currentRoom) return;
+  addChatMessage(myDisplayName, message, 'outgoing');
+  socket.emit('chat-message', {
+    room: currentRoom,
+    message: message,
+    userName: myDisplayName
+  });
+  chatInput.value = '';
+}
+
+function addChatMessage(user, message, type = 'incoming') {
+  const messageElement = document.createElement('div');
+  messageElement.className = `mb-3 ${type === 'outgoing' ? 'text-right' : ''}`;
+  messageElement.innerHTML = `
+    <div class="inline-block p-3 rounded-lg max-w-xs ${
+      type === 'outgoing' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
+    }">
+      <div class="text-xs font-semibold mb-1 ${
+        type === 'outgoing' ? 'text-blue-200' : 'text-gray-400'
+      }">${user}</div>
+      <div class="text-sm">${message}</div>
+    </div>
+  `;
+  const placeholder = chatMessages.querySelector('.text-center');
+  if (placeholder) placeholder.remove();
+  chatMessages.appendChild(messageElement);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') sendMessage();
+});
+
+socket.on('chat-message', (data) => {
+  addChatMessage(data.userName || `User ${data.userId.substring(0, 6)}`, data.message, 'incoming');
+});
+
+// Media control handlers
+toggleVideoBtn.addEventListener('click', () => {
+  if (!myStream) return;
+  const videoTrack = myStream.getVideoTracks()[0];
+  if (videoTrack) {
+    isVideoOn = !isVideoOn;
+    videoTrack.enabled = isVideoOn;
+    toggleVideoBtn.classList.toggle('bg-green-600', isVideoOn);
+    toggleVideoBtn.classList.toggle('bg-gray-700', !isVideoOn);
+    const localVideo = document.getElementById('video-local');
+    if (localVideo) {
+      const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:first-child');
+      if (statusIndicator) {
+        statusIndicator.className = `h-3 w-3 rounded-full ${isVideoOn ? 'bg-green-500' : 'bg-red-500'}`;
+      }
+    }
+    socket.emit('user-media-update', {
+      room: currentRoom,
+      video: isVideoOn,
+      audio: isAudioOn
+    });
+  }
+});
+
+toggleAudioBtn.addEventListener('click', () => {
+  if (!myStream) return;
+  const audioTrack = myStream.getAudioTracks()[0];
+  if (audioTrack) {
+    isAudioOn = !isAudioOn;
+    audioTrack.enabled = isAudioOn;
+    toggleAudioBtn.classList.toggle('bg-green-600', isAudioOn);
+    toggleAudioBtn.classList.toggle('bg-gray-700', !isAudioOn);
+    const localVideo = document.getElementById('video-local');
+    if (localVideo) {
+      const statusIndicator = localVideo.querySelector('.absolute.top-2.right-2 span:last-child');
+      if (statusIndicator) {
+        statusIndicator.className = `h-3 w-3 rounded-full ${isAudioOn ? 'bg-green-500' : 'bg-red-500'}`;
+      }
+    }
+    socket.emit('user-media-update', {
+      room: currentRoom,
+      video: isVideoOn,
+      audio: isAudioOn
+    });
+  }
+});
+
+// ==================== MEDIA SHARING FUNCTIONALITY ====================
+
+// Media Room Connection
+joinMediaBtn.addEventListener('click', () => {
+  const room = mediaRoomName.value.trim().toLowerCase();
+  if (!room) {
+    alert('Please enter a media room name');
+    return;
+  }
+  
+  mediaDisplayNameValue = mediaDisplayName.value.trim() || `User${Math.random().toString(36).substr(2, 5)}`;
+  currentMediaRoom = room;
+  
+  socket.emit('join-media-room', room, mediaDisplayNameValue);
+  
+  joinMediaBtn.disabled = true;
+  mediaRoomName.disabled = true;
+  mediaDisplayName.disabled = true;
+  leaveMediaBtn.disabled = false;
+  
+  updateMediaRoomStatus('connecting');
+});
+
+leaveMediaBtn.addEventListener('click', () => {
+  leaveMediaRoom();
+});
+
+function leaveMediaRoom() {
+  if (currentMediaRoom) {
+    socket.emit('leave-media-room', currentMediaRoom);
+  }
+  
+  // Reset media state
+  stopMediaSync();
+  if (youtubePlayerObj) {
+    youtubePlayerObj.destroy();
+    youtubePlayerObj = null;
+  }
+  if (localMediaPlayer) {
+    localMediaPlayer.pause();
+    localMediaPlayer = null;
+  }
+  if (directUrlMediaPlayer) {
+    directUrlMediaPlayer.pause();
+    directUrlMediaPlayer = null;
+  }
+  
+  youtubePlayer.innerHTML = `
+    <div class="text-center text-gray-400 py-8">
+      <i class="fab fa-youtube text-4xl mb-4"></i>
+      <p>Join a media room and enter a YouTube URL to load a video</p>
+    </div>
+  `;
+  
+  directUrlPlayer.innerHTML = `
+    <div class="text-center text-gray-400 py-8">
+      <i class="fas fa-link text-4xl mb-4"></i>
+      <p>Join a media room and enter a direct video URL to load a video</p>
+    </div>
+  `;
+  
+  localFilePlayer.innerHTML = `
+    <div class="text-center text-gray-400 py-8">
+      <i class="fas fa-file-video text-4xl mb-4"></i>
+      <p>Join a media room and select a video or audio file to play</p>
+    </div>
+  `;
+  
+  mediaParticipants.innerHTML = `
+    <div class="text-center text-gray-400 py-4 w-full">
+      <p>No participants in media room</p>
+    </div>
+  `;
+  
+  mediaChatMessages.innerHTML = '<div class="text-center text-gray-400 py-4">No media chat messages yet.</div>';
+  
+  [loadYoutubeBtn, loadDirectUrlBtn, playLocalBtn, playMediaBtn, pauseMediaBtn, stopMediaBtn, syncMediaBtn, becomeHostBtn, mediaChatInput, sendMediaChatBtn].forEach(btn => {
+    btn.disabled = true;
+  });
+  
+  mediaProgress.disabled = true;
+  mediaProgress.value = 0;
+  currentTime.textContent = '0:00';
+  duration.textContent = '0:00';
+  
+  joinMediaBtn.disabled = false;
+  mediaRoomName.disabled = false;
+  mediaDisplayName.disabled = false;
+  leaveMediaBtn.disabled = true;
+  
+  updateMediaRoomStatus('disconnected');
+  currentMediaRoom = null;
+  isMediaHost = false;
+  mediaRoomUsers.clear();
+}
+
+function updateMediaRoomStatus(status) {
+  const indicator = mediaRoomStatus.querySelector('.h-3');
+  const text = mediaRoomStatus.querySelector('span:last-child');
+  
+  indicator.className = 'h-3 w-3 rounded-full mr-2 ' +
+    (status === 'connected' ? 'bg-green-500' : 
+     status === 'connecting' ? 'bg-yellow-500 pulse-connecting' : 'bg-red-500');
+  
+  text.textContent = 
+    status === 'connected' ? `Connected to ${currentMediaRoom} (${isMediaHost ? 'Host' : 'Participant'})` :
+    status === 'connecting' ? 'Connecting to media room...' : 'Not connected to media room';
+}
+
+function updateMediaParticipants() {
+  mediaParticipants.innerHTML = '';
+  
+  if (mediaRoomUsers.size === 0) {
+    mediaParticipants.innerHTML = `
+      <div class="text-center text-gray-400 py-4 w-full">
+        <p>No participants in media room</p>
+      </div>
+    `;
+    return;
+  }
+  
+  mediaRoomUsers.forEach((user, userId) => {
+    const participant = document.createElement('div');
+    participant.className = 'bg-gray-600 px-3 py-2 rounded-lg flex items-center';
+    participant.innerHTML = `
+      <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+      <span class="text-sm">${user.displayName} ${userId === socket.id ? '(You)' : ''}</span>
+      ${user.isHost ? '<i class="fas fa-crown ml-2 text-yellow-400"></i>' : ''}
+    `;
+    mediaParticipants.appendChild(participant);
+  });
+}
+
+// Media Sharing Socket Events
+socket.on('media-room-joined', (users, hostId) => {
+  console.log('👥 Media room joined, users:', users);
+  
+  users.forEach(user => {
+    mediaRoomUsers.set(user.id, user);
+  });
+  
+  isMediaHost = hostId === socket.id;
+  updateMediaRoomStatus('connected');
+  updateMediaParticipants();
+  
+  // Enable media controls
+  [loadYoutubeBtn, loadDirectUrlBtn, playLocalBtn, mediaChatInput, sendMediaChatBtn].forEach(btn => {
+    btn.disabled = false;
+  });
+  
+  if (isMediaHost) {
+    becomeHostBtn.disabled = true;
+    becomeHostBtn.classList.add('bg-purple-600');
+    addMediaChatMessage('System', 'You are the media host. You can control playback for everyone.', 'incoming');
+  } else {
+    becomeHostBtn.disabled = false;
+    addMediaChatMessage('System', `Connected to media room. ${mediaRoomUsers.get(hostId)?.displayName || 'Someone'} is the host.`, 'incoming');
+  }
+});
+
+socket.on('media-user-connected', (userData) => {
+  console.log('👋 New user joined media room:', userData);
+  mediaRoomUsers.set(userData.id, userData);
+  updateMediaParticipants();
+  addMediaChatMessage('System', `${userData.displayName} joined the media room`, 'incoming');
+});
+
+socket.on('media-user-disconnected', (userId) => {
+  console.log('❌ User left media room:', userId);
+  const userName = mediaRoomUsers.get(userId)?.displayName || 'User';
+  mediaRoomUsers.delete(userId);
+  updateMediaParticipants();
+  addMediaChatMessage('System', `${userName} left the media room`, 'incoming');
+  
+  // If host left, allow someone else to become host
+  if (mediaRoomUsers.size > 0) {
+    const anyHost = Array.from(mediaRoomUsers.values()).some(user => user.isHost);
+    if (!anyHost) {
+      addMediaChatMessage('System', 'Host left. Click "Become Host" to take control.', 'incoming');
+      becomeHostBtn.disabled = false;
+    }
+  }
+});
+
+socket.on('media-host-changed', (newHostId) => {
+  // Update all users' host status
+  mediaRoomUsers.forEach((user, userId) => {
+    user.isHost = userId === newHostId;
+  });
+  
+  isMediaHost = newHostId === socket.id;
+  updateMediaRoomStatus('connected');
+  updateMediaParticipants();
+  
+  if (isMediaHost) {
+    becomeHostBtn.disabled = true;
+    addMediaChatMessage('System', 'You are now the media host!', 'incoming');
+  } else {
+    const hostName = mediaRoomUsers.get(newHostId)?.displayName || 'Someone';
+    addMediaChatMessage('System', `${hostName} is now the media host`, 'incoming');
+  }
+});
+
+// YouTube Player API
+function onYouTubeIframeAPIReady() {
+  console.log('YouTube IFrame API is ready');
+}
+
+// Extract YouTube video ID from URL
+function extractYouTubeId(url) {
+  const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[7].length === 11) ? match[7] : null;
+}
+
+// Load YouTube video
+loadYoutubeBtn.addEventListener('click', () => {
+  const url = youtubeUrl.value.trim();
+  if (!url) {
+    alert('Please enter a YouTube URL');
+    return;
+  }
+  
+  const videoId = extractYouTubeId(url);
+  if (!videoId) {
+    alert('Invalid YouTube URL');
+    return;
+  }
+  
+  loadYouTubeVideo(videoId);
+});
+
+function loadYouTubeVideo(videoId, startTime = 0) {
+  // Clear any existing player
+  if (youtubePlayerObj) {
+    youtubePlayerObj.destroy();
+  }
+  
+  // Create new player
+  youtubePlayer.innerHTML = `<div id="yt-player"></div>`;
+  
+  youtubePlayerObj = new YT.Player('yt-player', {
+    height: '400',
+    width: '100%',
+    videoId: videoId,
+    playerVars: {
+      'playsinline': 1,
+      'enablejsapi': 1,
+      'origin': window.location.origin,
+      'start': startTime
+    },
+    events: {
+      'onReady': onYouTubePlayerReady,
+      'onStateChange': onYouTubePlayerStateChange
+    }
+  });
+  
+  currentMediaType = 'youtube';
+  enableMediaControls();
+  addMediaChatMessage('System', `Loaded YouTube video: ${youtubeUrl.value}`, 'incoming');
+  
+  // If host, broadcast to room
+  if (isMediaHost && currentMediaRoom) {
+    socket.emit('media-control', {
+      room: currentMediaRoom,
+      type: 'load-youtube',
+      videoId: videoId,
+      startTime: startTime
+    });
+  }
+}
+
+function onYouTubePlayerReady(event) {
+  console.log('YouTube player ready');
+  duration.textContent = formatTime(youtubePlayerObj.getDuration());
+  enableMediaControls();
+}
+
+function onYouTubePlayerStateChange(event) {
+  if (event.data === YT.PlayerState.PLAYING) {
+    startMediaSync();
+  } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+    stopMediaSync();
+  }
+  
+  // Update progress
+  if (event.data === YT.PlayerState.PLAYING) {
+    updateYouTubeProgress();
+  }
+}
+
+function updateYouTubeProgress() {
+  if (youtubePlayerObj && youtubePlayerObj.getPlayerState() === YT.PlayerState.PLAYING) {
+    const current = youtubePlayerObj.getCurrentTime();
+    const total = youtubePlayerObj.getDuration();
+    const progress = (current / total) * 100;
+    
+    mediaProgress.value = progress;
+    currentTime.textContent = formatTime(current);
+    
+    setTimeout(updateYouTubeProgress, 1000);
+  }
+}
 
 // Direct URL Video Loading
 loadDirectUrlBtn.addEventListener('click', () => {
@@ -427,140 +1260,23 @@ function loadDirectUrlVideo(url, startTime = 0) {
   }
 }
 
-// Update media control functions to handle direct URL videos
-function playMedia() {
-  if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    youtubePlayerObj.playVideo();
-  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-    directUrlMediaPlayer.play();
-  } else if (currentMediaType === 'local' && localMediaPlayer) {
-    localMediaPlayer.play();
-  }
-}
-
-function pauseMedia() {
-  if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    youtubePlayerObj.pauseVideo();
-  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-    directUrlMediaPlayer.pause();
-  } else if (currentMediaType === 'local' && localMediaPlayer) {
-    localMediaPlayer.pause();
-  }
-}
-
-function stopMedia() {
-  if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    youtubePlayerObj.stopVideo();
-  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-    directUrlMediaPlayer.pause();
-    directUrlMediaPlayer.currentTime = 0;
-  } else if (currentMediaType === 'local' && localMediaPlayer) {
-    localMediaPlayer.pause();
-    localMediaPlayer.currentTime = 0;
-  }
-}
-
-function seekMedia(time) {
-  if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    youtubePlayerObj.seekTo(time, true);
-  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-    directUrlMediaPlayer.currentTime = time;
-  } else if (currentMediaType === 'local' && localMediaPlayer) {
-    localMediaPlayer.currentTime = time;
-  }
-}
-
-// Update media progress handling
-mediaProgress.addEventListener('input', () => {
-  if (!isMediaHost) return;
+// Local file handling
+localFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
   
-  const progress = mediaProgress.value;
-  let newTime;
+  const fileType = file.type;
+  const isVideo = fileType.startsWith('video/');
+  const isAudio = fileType.startsWith('audio/');
   
-  if (currentMediaType === 'youtube' && youtubePlayerObj) {
-    const totalDuration = youtubePlayerObj.getDuration();
-    newTime = (progress / 100) * totalDuration;
-    youtubePlayerObj.seekTo(newTime, true);
-  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-    newTime = (progress / 100) * directUrlMediaPlayer.duration;
-    directUrlMediaPlayer.currentTime = newTime;
-  } else if (currentMediaType === 'local' && localMediaPlayer) {
-    newTime = (progress / 100) * localMediaPlayer.duration;
-    localMediaPlayer.currentTime = newTime;
+  if (!isVideo && !isAudio) {
+    alert('Please select a video or audio file');
+    return;
   }
   
-  if (newTime !== undefined && currentMediaRoom) {
-    socket.emit('media-control', {
-      room: currentMediaRoom,
-      type: 'seek',
-      time: newTime
-    });
-  }
+  playLocalBtn.disabled = false;
 });
 
-// Update media sync to handle direct URL videos
-function startMediaSync() {
-  if (mediaSyncInterval) {
-    clearInterval(mediaSyncInterval);
-  }
-  
-  mediaSyncInterval = setInterval(() => {
-    if (isMediaHost) {
-      let state, time, totalDuration;
-      
-      if (currentMediaType === 'youtube' && youtubePlayerObj) {
-        state = youtubePlayerObj.getPlayerState();
-        time = youtubePlayerObj.getCurrentTime();
-        totalDuration = youtubePlayerObj.getDuration();
-      } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
-        state = directUrlMediaPlayer.paused ? 2 : 1;
-        time = directUrlMediaPlayer.currentTime;
-        totalDuration = directUrlMediaPlayer.duration;
-      } else if (currentMediaType === 'local' && localMediaPlayer) {
-        state = localMediaPlayer.paused ? 2 : 1;
-        time = localMediaPlayer.currentTime;
-        totalDuration = localMediaPlayer.duration;
-      }
-      
-      if (state !== undefined && time !== undefined) {
-        socket.emit('media-control', {
-          room: currentMediaRoom,
-          type: 'sync',
-          mediaType: currentMediaType,
-          state: state,
-          time: time,
-          duration: totalDuration
-        });
-      }
-    }
-  }, 1000);
-}
-
-// Update socket event handler for media controls
-socket.on('media-control', (data) => {
-  if (data.room !== currentMediaRoom || data.from === socket.id) return;
-  
-  console.log('🎮 Received media control:', data);
-  
-  if (data.type === 'play') {
-    playMedia();
-  } else if (data.type === 'pause') {
-    pauseMedia();
-  } else if (data.type === 'stop') {
-    stopMedia();
-  } else if (data.type === 'seek') {
-    seekMedia(data.time);
-  } else if (data.type === 'load-youtube') {
-    loadYouTubeVideo(data.videoId, data.startTime);
-  } else if (data.type === 'load-direct-url') {
-    loadDirectUrlVideo(data.url, data.startTime);
-  } else if (data.type === 'load-local-file') {
-    // For local files, we can only share the filename and let users load their own copies
-    addMediaChatMessage('System', `Host is playing local file: ${data.fileName}. Please load the same file to sync.`, 'incoming');
-  }
-});
-
-// Update local file handling to broadcast file info
 playLocalBtn.addEventListener('click', () => {
   const file = localFileInput.files[0];
   if (!file) return;
@@ -624,19 +1340,12 @@ playLocalBtn.addEventListener('click', () => {
   }
 });
 
-// Update enableMediaControls to handle new buttons
+// Media control functions
 function enableMediaControls() {
   [playMediaBtn, pauseMediaBtn, stopMediaBtn, syncMediaBtn].forEach(btn => {
     btn.disabled = false;
   });
   mediaProgress.disabled = false;
-  
-  // Enable appropriate load buttons based on media room connection
-  if (currentMediaRoom) {
-    [loadYoutubeBtn, loadDirectUrlBtn, playLocalBtn].forEach(btn => {
-      btn.disabled = false;
-    });
-  }
 }
 
 function disableMediaControls() {
@@ -649,6 +1358,8 @@ function disableMediaControls() {
 function playMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.playVideo();
+  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+    directUrlMediaPlayer.play();
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.play();
   }
@@ -657,6 +1368,8 @@ function playMedia() {
 function pauseMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.pauseVideo();
+  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+    directUrlMediaPlayer.pause();
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.pause();
   }
@@ -665,6 +1378,9 @@ function pauseMedia() {
 function stopMedia() {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.stopVideo();
+  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+    directUrlMediaPlayer.pause();
+    directUrlMediaPlayer.currentTime = 0;
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.pause();
     localMediaPlayer.currentTime = 0;
@@ -674,6 +1390,8 @@ function stopMedia() {
 function seekMedia(time) {
   if (currentMediaType === 'youtube' && youtubePlayerObj) {
     youtubePlayerObj.seekTo(time, true);
+  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+    directUrlMediaPlayer.currentTime = time;
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     localMediaPlayer.currentTime = time;
   }
@@ -719,6 +1437,9 @@ mediaProgress.addEventListener('input', () => {
     const totalDuration = youtubePlayerObj.getDuration();
     newTime = (progress / 100) * totalDuration;
     youtubePlayerObj.seekTo(newTime, true);
+  } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+    newTime = (progress / 100) * directUrlMediaPlayer.duration;
+    directUrlMediaPlayer.currentTime = newTime;
   } else if (currentMediaType === 'local' && localMediaPlayer) {
     newTime = (progress / 100) * localMediaPlayer.duration;
     localMediaPlayer.currentTime = newTime;
@@ -755,6 +1476,10 @@ function startMediaSync() {
         state = youtubePlayerObj.getPlayerState();
         time = youtubePlayerObj.getCurrentTime();
         totalDuration = youtubePlayerObj.getDuration();
+      } else if (currentMediaType === 'direct-url' && directUrlMediaPlayer) {
+        state = directUrlMediaPlayer.paused ? 2 : 1; // 1 = playing, 2 = paused
+        time = directUrlMediaPlayer.currentTime;
+        totalDuration = directUrlMediaPlayer.duration;
       } else if (currentMediaType === 'local' && localMediaPlayer) {
         state = localMediaPlayer.paused ? 2 : 1; // 1 = playing, 2 = paused
         time = localMediaPlayer.currentTime;
@@ -781,6 +1506,30 @@ function stopMediaSync() {
     mediaSyncInterval = null;
   }
 }
+
+// Handle incoming media controls
+socket.on('media-control', (data) => {
+  if (data.room !== currentMediaRoom || data.from === socket.id) return;
+  
+  console.log('🎮 Received media control:', data);
+  
+  if (data.type === 'play') {
+    playMedia();
+  } else if (data.type === 'pause') {
+    pauseMedia();
+  } else if (data.type === 'stop') {
+    stopMedia();
+  } else if (data.type === 'seek') {
+    seekMedia(data.time);
+  } else if (data.type === 'load-youtube') {
+    loadYouTubeVideo(data.videoId, data.startTime);
+  } else if (data.type === 'load-direct-url') {
+    loadDirectUrlVideo(data.url, data.startTime);
+  } else if (data.type === 'load-local-file') {
+    // For local files, we can only share the filename and let users load their own copies
+    addMediaChatMessage('System', `Host is playing local file: ${data.fileName}. Please load the same file to sync.`, 'incoming');
+  }
+});
 
 // Media chat functionality
 function sendMediaChatMessage() {
