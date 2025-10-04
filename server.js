@@ -176,28 +176,28 @@ io.on('connection', (socket) => {
   });
 
   socket.on('media-control', (data) => {
-    const mediaRoomId = `media-${data.room}`;
-    if (!mediaRooms.has(mediaRoomId)) {
-      console.warn(`Media control for non-existent room: ${data.room}`);
-      return;
-    }
+  const mediaRoomId = `media-${data.room}`;
+  if (!mediaRooms.has(mediaRoomId)) {
+    console.warn(`Media control for non-existent room: ${data.room}`);
+    return;
+  }
+  
+  const mediaRoom = mediaRooms.get(mediaRoomId);
+  const user = mediaRoom.get(socket.id);
+  
+  // Only allow hosts to control media
+  if (user && user.isHost) {
+    console.log(`🎮 Media control from host ${socket.id} in room ${data.room}:`, data.type);
     
-    const mediaRoom = mediaRooms.get(mediaRoomId);
-    const user = mediaRoom.get(socket.id);
-    
-    // Only allow hosts to control media
-    if (user && user.isHost) {
-      console.log(`🎮 Media control from host ${socket.id} in room ${data.room}:`, data.type);
-      
-      // Broadcast media control to all other users in the media room
-      socket.to(mediaRoomId).emit('media-control', {
-        ...data,
-        from: socket.id
-      });
-    } else {
-      console.warn(`❌ Non-host ${socket.id} attempted media control in room ${data.room}`);
-    }
-  });
+    // Broadcast media control to all other users in the media room
+    socket.to(mediaRoomId).emit('media-control', {
+      ...data,
+      from: socket.id
+    });
+  } else {
+    console.warn(`❌ Non-host ${socket.id} attempted media control in room ${data.room}`);
+  }
+});
 
   socket.on('media-chat-message', (data) => {
     const mediaRoomId = `media-${data.room}`;
